@@ -4,7 +4,7 @@ from z3 import Bool, Implies, And, Or, sat, Solver, set_option, BitVec, ULT, ULE
 from olsq.input import input_qasm
 from olsq.output import output_qasm
 from olsq.device import qcdevice
-from olsq.run_h_compiler import run_sabre, construct_dagdependency, construct_dagcircuit, left_layout_and_right_routing, right_layout_and_left_routing
+from olsq.run_h_compiler import run_sabre, run_sabre_on_dag, construct_dagdependency, construct_dagcircuit, left_layout_and_right_routing, right_layout_and_left_routing, construct_dagcircuit3
 import pkgutil
 from enum import Enum
 import timeit
@@ -1073,7 +1073,7 @@ class OLSQ:
                     print("Integer exceeds valid range. Quitting...")
                     quit = True
                 else:
-                    user_in2 = input(f'Enter a to run SabreLayout on right partition of circuit, then SabreSwap on left, and vice versa. Enter b to construct a left and right dagdependency from the index. Enter c to construct a left and right dagcircuit from the index:\n')
+                    user_in2 = input(f'Enter a to run SabreLayout on right partition of circuit, then SabreSwap on left, and vice versa. Enter b to construct a left and right dagdependency from the index. Enter c to construct a single dagcircuit from the index point. Enter d to construct a left and right dagcircuit from the index:\n')
                     if user_in2 == 'a' or user_in2 == 'A':
                         left_swap_num, left_depth = left_layout_and_right_routing(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, val) 
                         
@@ -1087,6 +1087,12 @@ class OLSQ:
                         construct_dagdependency(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, val)
                        
                     elif user_in2 == 'c' or user_in2 == 'C':
+                        dag = construct_dagcircuit3(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, val)
+                        
+                        swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, False)
+                        print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
+                        
+                    elif user_in2 == 'd' or user_in2 == 'D':
                         construct_dagcircuit(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, val)
                     else:
                         print('Invalid input. Quitting...')

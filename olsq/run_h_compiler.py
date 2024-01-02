@@ -7,9 +7,11 @@ from qiskit.transpiler.passes import Unroller
 from rustworkx.visualization import graphviz_draw
 from qiskit.compiler import transpile
 from collections import deque
-from qiskit.dagcircuit import DAGDependency, DAGDepNode
-from qiskit.converters import circuit_to_dagdependency, circuit_to_dag
+from qiskit.dagcircuit import DAGDependency, DAGDepNode, DAGCircuit
+from qiskit.circuit import Qubit, QuantumRegister, Gate, CircuitInstruction, Instruction
+from qiskit.converters import circuit_to_dagdependency, circuit_to_dag, dag_to_circuit
 import rustworkx as rx
+import collections
 
 def partition_circuit(circuit_info, index):
     if index < 0 or index >= len(circuit_info):
@@ -74,6 +76,41 @@ def construct_qc(list_gate, count_physical_qubit): # list_gate is a tuple of lis
         else:
             raise TypeError("Currently only support one and two-qubit gate.")
     return qc
+
+def construct_qc_with_barriers(list_gate, count_physical_qubit): # list_gate is a tuple of lists
+    qc = QuantumCircuit(count_physical_qubit)
+    for gate in list_gate:
+        if len(gate) == 2:
+            qc.cx(gate[0], gate[1])
+        elif len(gate) == 1:
+            qc.h(gate[0])
+        else:
+            raise TypeError("Currently only support one and two-qubit gate.")
+        qc.barrier()
+    return qc
+
+def run_sabre_on_dag(dagcircuit, coupling, orig):
+    device = CouplingMap(couplinglist = coupling, description="sabre_test")
+    # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
+    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
+    
+    out_dag = sbl.run(dagcircuit)
+    sabre_cir = dag_to_circuit(out_dag)
+    
+    if orig:
+        sabre_cir.draw(scale=0.7, filename="sabrecir_orig.png", output='mpl', style='color')
+    else:
+        sabre_cir.draw(scale=0.7, filename="sabrecir_from_dag.png", output='mpl', style='color')
+    
+    count_swap = 0
+    for gate in sabre_cir.data:
+        # print(gate[0].name)
+        # print(gate[0].num_qubits)
+        if gate[0].name == 'swap':
+            count_swap += 1
+
+    return count_swap, sabre_cir.depth()
+    
     
 
 def run_sabre(circuit_info, coupling, count_physical_qubit):
@@ -84,34 +121,140 @@ def run_sabre(circuit_info, coupling, count_physical_qubit):
     list_gate = circuit_info
     qc = construct_qc(list_gate, count_physical_qubit)
     qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
+    
+    qc_with_barriers = construct_qc_with_barriers(list_gate, count_physical_qubit)
+    qc_with_barriers.draw(scale=0.7, filename = "orig_circuit_with_barriers.png", output='mpl', style='color', plot_barriers = False)
+    
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
     img = device.draw()
     img.save("coupling_map.png")
     
-    # initialize sabre
-    # ["basic", "lookahead", "decay"]
-    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
-    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
-    pass_manager1 = PassManager(sbl)
-    sabre_cir = pass_manager1.run(qc)
-    pass_manager2 = PassManager(sbs)
-    sabre_cir = pass_manager2.run(sabre_cir)
-    sabre_cir.draw(scale=0.7, filename="sabrecir2.png", output='mpl', style='color')
+    # print("qubits")
+    # print(qc.qubits)
+    # print("qregs")
+    # print(qc.qregs)
+    # print("instructions")
+    # print(qc.data)
     
-    count_swap = 0
-    for gate in sabre_cir.data:
-        # print(gate[0].name)
-        # print(gate[0].num_qubits)
-        if gate[0].name == 'swap':
-            count_swap += 1
+    orig_dagcircuit = circuit_to_dag(qc)
+    orig_dagcircuit.draw(scale=0.7, filename='orig_dagcircuit.png', style='color')
+    
+    count_swap, depth = run_sabre_on_dag(orig_dagcircuit, coupling, True)
+    
+    return count_swap, depth
+    
+    # # initialize sabre
+    # # ["basic", "lookahead", "decay"]
+    # # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
+    # sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
+    # pass_manager1 = PassManager(sbl)
+    # sabre_cir = pass_manager1.run(qc)
+    # # pass_manager2 = PassManager(sbs)
+    # # sabre_cir = pass_manager2.run(sabre_cir)
+#     sabre_cir.draw(scale=0.7, filename="sabrecir.png", output='mpl', style='color')
+    
+#     count_swap = 0
+#     for gate in sabre_cir.data:
+#         # print(gate[0].name)
+#         # print(gate[0].num_qubits)
+#         if gate[0].name == 'swap':
+#             count_swap += 1
 
-    return count_swap, sabre_cir.depth()
+#     return count_swap, sabre_cir.depth()
+
+def _add_gate_to_dagcircuit(gate, qubit_array, dagcircuit):
+    if len(gate) == 1:
+        instruction = CircuitInstruction(operation=Instruction(name='h', num_qubits=1, num_clbits=0, params=[]), qubits=(qubit_array[gate[0]]))
+        dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits)
+        print("added")
+        
+    elif len(gate) == 2:
+        instruction = CircuitInstruction(operation=Instruction(name='cx', num_qubits=2, num_clbits=0, params=[]), qubits=(qubit_array[gate[0]], qubit_array[gate[1]]))
+        dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits)
+        print("added")
+
+
+def construct_dagcircuit3(circuit_info, coupling, count_physical_qubit, index): 
+    dagcircuit = DAGCircuit()
+#     qregs = [QuantumRegister(size=16, name='q') for i in range(count_physical_qubit)]
+    
+    qubit_array = [Qubit(register=QuantumRegister(size=16, name='q'), index=i) for i in range(count_physical_qubit)]
+    
+    dagcircuit.add_qubits(qubit_array)
+    
+    left_queue = collections.deque(reversed(circuit_info[:index]))
+    print("left queue")
+    print(left_queue)
+    right_queue = collections.deque(circuit_info[index+1:])
+    print("right queue")
+    print(right_queue)
+    
+    _add_gate_to_dagcircuit(circuit_info[index], qubit_array, dagcircuit)
+    
+    while left_queue and right_queue:
+        l = left_queue.popleft()
+        r = right_queue.popleft()
+        _add_gate_to_dagcircuit(l, qubit_array, dagcircuit)
+        _add_gate_to_dagcircuit(r, qubit_array, dagcircuit)
+        
+    while left_queue:
+        l = left_queue.popleft()
+        _add_gate_to_dagcircuit(l, qubit_array, dagcircuit)
+    
+    while right_queue:
+        r = right_queue.popleft()
+        _add_gate_to_dagcircuit(r, qubit_array, dagcircuit)
+        
+    dagcircuit.draw(scale=0.7, filename='dagcircuit.png', style='color')
+    
+    return dagcircuit
+        
+        
+
+# def construct_dagcircuit2(circuit_info, coupling, count_physical_qubit, index):
+#     graph = rx.PyDAG()
+#     root_gate = circuit_info[index]
+#     root_idx = graph.add_node(root_gate)
+    
+#     # seen_right
+    
+#     seen_right = {root_gate[0]: root_idx}
+#     if len(root_gate) == 2:
+#         seen_right[root_gate[1]] = root_idx
+    
+#     for gate in circuit_info[index+1:]:
+#         new_node_idx = graph.add_node(gate)
+#         if gate[0] in seen_right:
+#             graph.add_edge(seen_right[gate[0]], new_node_idx, (seen_right[gate[0]], new_node_idx))
+#             seen_right[gate[0]] = new_node_idx
+#         if len(gate) == 2 and gate[1] in seen_right:
+#             graph.add_edge(seen_right[gate[1]], new_node_idx, (seen_right[gate[1]], new_node_idx))
+#             seen_right[gate[1]] = new_node_idx
+            
+#     # seen_left
+            
+#     seen_left = {root_gate[0]: root_idx}
+#     if  len(root_gate) == 2:
+#         seen_left[root_gate[0]] = root_idx
+    
+#     for gate in reversed(circuit_info[:index]):
+#         new_node_idx = graph.add_node(gate)
+#         if gate[0] in seen_left:
+#             graph.add_edge(seen_left[gate[0]], new_node_idx, (seen_left[gate[0]], new_node_idx))
+#             seen_left[gate[0]] = new_node_idx
+#         if len(gate) == 2 and gate[1] in seen_left:
+#             graph.add_edge(seen_left[gate[1]], new_node_idx, (seen_left[gate[1]], new_node_idx))
+#             seen_left[gate[1]] = new_node_idx
+        
+#     graph.draw(scale=0.7, filename='pydag.png', style='color')
+#     return graph
         
 def construct_dagcircuit(circuit_info, coupling, count_physical_qubit, index):
     if index < 0 or index >= len(circuit_info):
         print("Bad index passed into partition_circuit")
-    left_circuit_info_reversed = reversed(circuit_info[:index + 1])
-    right_circuit_info = circuit_info[index:]
+    left_circuit_info_reversed = reversed(circuit_info[:index])
+    right_circuit_info = circuit_info[index+1:]
+    
     print("left_circuit_info_reversed")
     print(left_circuit_info_reversed)
     print("right_circuit_info")
