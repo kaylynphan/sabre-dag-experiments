@@ -166,28 +166,26 @@ def _add_gate_to_dagcircuit(gate, qubit_array, dagcircuit):
     if len(gate) == 1:
         instruction = CircuitInstruction(operation=Instruction(name='h', num_qubits=1, num_clbits=0, params=[]), qubits=(qubit_array[gate[0]]))
         dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits)
-        print("added")
         
     elif len(gate) == 2:
         instruction = CircuitInstruction(operation=Instruction(name='cx', num_qubits=2, num_clbits=0, params=[]), qubits=(qubit_array[gate[0]], qubit_array[gate[1]]))
         dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits)
-        print("added")
 
 
-def construct_dagcircuit3(circuit_info, coupling, count_physical_qubit, index): 
+def construct_dagcircuit3(circuit_info, coupling, count_physical_qubit, index, circuit_name): 
     dagcircuit = DAGCircuit()
 #     qregs = [QuantumRegister(size=16, name='q') for i in range(count_physical_qubit)]
     
-    qubit_array = [Qubit(register=QuantumRegister(size=16, name='q'), index=i) for i in range(count_physical_qubit)]
+    qubit_array = [Qubit(register=QuantumRegister(size=count_physical_qubit, name='q'), index=i) for i in range(count_physical_qubit)]
     
     dagcircuit.add_qubits(qubit_array)
     
     left_queue = collections.deque(reversed(circuit_info[:index]))
-    print("left queue")
-    print(left_queue)
+    # print("left queue")
+    # print(left_queue)
     right_queue = collections.deque(circuit_info[index+1:])
-    print("right queue")
-    print(right_queue)
+    # print("right queue")
+    # print(right_queue)
     
     _add_gate_to_dagcircuit(circuit_info[index], qubit_array, dagcircuit)
     
@@ -205,7 +203,8 @@ def construct_dagcircuit3(circuit_info, coupling, count_physical_qubit, index):
         r = right_queue.popleft()
         _add_gate_to_dagcircuit(r, qubit_array, dagcircuit)
         
-    dagcircuit.draw(scale=0.7, filename='dagcircuit.png', style='color')
+    # img = dagcircuit.draw(scale=0.7, style='color') # filename='images/{}/index_{}_dagcircuit.png'.format(circuit_name, index),
+    # img.save('images/{}/index_{}_dagcircuit.png'.format(circuit_name, index))
     
     return dagcircuit
         
