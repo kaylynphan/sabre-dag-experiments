@@ -8,6 +8,7 @@ from olsq.run_h_compiler import run_sabre, run_sabre_on_dag, construct_dagdepend
 import pkgutil
 from enum import Enum
 import timeit
+import csv
 
 TIMEOUT = 90000
 # MEMORY_MAX_SIZE = 1000000000 * 58
@@ -102,7 +103,7 @@ def dependency_extracting(list_gate_qubits, count_program_qubit: int):
 
 
 class OLSQ:
-    def __init__(self, obj_is_swap, mode, encoding, swap_up_bound = -1):
+    def __init__(self, obj_is_swap, mode, encoding, swap_up_bound = -1, layout_trials=1):
         """Set the objective of OLSQ, and whether it is transition-based
 
         Args:
@@ -143,9 +144,14 @@ class OLSQ:
         self.start = 0
         self.swap_sabre = 0
         # self.ancillary_var_counter = 0
+
+        self.layout_trials = layout_trials
     
     def set_circuit_name(self, name):
         self.circuit_name = name
+
+    def set_device_name(self, name):
+        self.device_name = name
 
     def setdevice(self, device: qcdevice):
         """Pass in parameters from the given device.  If in TB mode,
@@ -1063,17 +1069,63 @@ class OLSQ:
     
     def run_sabre_with_dag_formation_at_all_indices(self):
         
-        print("Running original sabre heuristic")
-        swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit)
+        print("Running original sabre heuristic with layout_trials={}".format(self.layout_trials))
+        swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
         print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
         
+        print("Indices")
+        indices = [i for i in range(len(self.list_gate_qubits))]
         for i in range(len(self.list_gate_qubits)):
-            print("Constructing DAGCircuit at index {}".format(i))
-            dag = construct_dagcircuit3(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)        
-            swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, False)
-            print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
+            print(str(i))
             
+        print("Swap Counts")
+        swap_counts = []
+        depths = []
+        min_indices = []
+        max_indixes = []
+        min_swap_count = float("inf")
+        max_swap_count = 0
+        for i in range(len(self.list_gate_qubits)):
+            # print("Constructing DAGCircuit at index {}".format(i))
+            dag = construct_dagcircuit3(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)        
+            swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, False, self.layout_trials)
+            if swap_num < min_swap_count:
+                min_indices = [i]
+                min_swap_count = swap_num
+            elif swap_num == min_swap_count:
+                min_indices.append(i)
+
+            if swap_num > max_swap_count:
+                max_indices = [i]
+                max_swap_count = swap_num
+            elif swap_num == max_swap_count:
+                max_indices.append(i)
+            
+            print(str(swap_num))
+            swap_counts.append(swap_num)
+            depths.append(depth)
+            # print(f'index: {i}, swap_count: {swap_num}, depth: {depth}')
+            # print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
+        print(f'Original sabre result: swap_count: {swap_counts[0]}, depth: {depths[0]}')
+        print(f'Lowest swap_count: {min_swap_count} at indices: [{str(min_indices)}]')
+        print(f'Highest swap_count: {max_swap_count} at indices: [{str(max_indices)}]')
+
         
+        data = list(zip(indices, swap_counts, depths))
+        csv_file_path = 'csv_outputs/' + self.circuit_name + '_' + self.device_name
+
+        # Writing to CSV file
+        with open(csv_file_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+
+            # Write the header with additional columns
+            header = ["index", "swap_count", "depth", "min_swap_count", "min_indices"]
+            writer.writerow(header)
+
+            # Write the data
+            writer.writerows(data)
+
+        print(f"CSV file '{csv_file_path}' has been created.")
 #         swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit)
 #         print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
 #         quit = False

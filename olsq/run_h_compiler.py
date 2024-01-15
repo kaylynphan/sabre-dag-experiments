@@ -89,18 +89,18 @@ def construct_qc_with_barriers(list_gate, count_physical_qubit): # list_gate is 
         qc.barrier()
     return qc
 
-def run_sabre_on_dag(dagcircuit, coupling, orig):
+def run_sabre_on_dag(dagcircuit, coupling, orig, layout_trials):
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
     # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
-    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
+    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials)
     
     out_dag = sbl.run(dagcircuit)
     sabre_cir = dag_to_circuit(out_dag)
     
-    if orig:
-        sabre_cir.draw(scale=0.7, filename="sabrecir_orig.png", output='mpl', style='color')
-    else:
-        sabre_cir.draw(scale=0.7, filename="sabrecir_from_dag.png", output='mpl', style='color')
+    # if orig:
+    #     sabre_cir.draw(scale=0.7, filename="sabrecir_orig.png", output='mpl', style='color')
+    # else:
+    #     sabre_cir.draw(scale=0.7, filename="sabrecir_from_dag.png", output='mpl', style='color')
     
     count_swap = 0
     for gate in sabre_cir.data:
@@ -113,17 +113,17 @@ def run_sabre_on_dag(dagcircuit, coupling, orig):
     
     
 
-def run_sabre(circuit_info, coupling, count_physical_qubit):
+def run_sabre(circuit_info, coupling, count_physical_qubit, layout_trials):
     # read qasm
     print("circuit_info")
     print(type(circuit_info))
     print(circuit_info)
     list_gate = circuit_info
     qc = construct_qc(list_gate, count_physical_qubit)
-    qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
+    # qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
     
-    qc_with_barriers = construct_qc_with_barriers(list_gate, count_physical_qubit)
-    qc_with_barriers.draw(scale=0.7, filename = "orig_circuit_with_barriers.png", output='mpl', style='color', plot_barriers = False)
+    # qc_with_barriers = construct_qc_with_barriers(list_gate, count_physical_qubit)
+    # qc_with_barriers.draw(scale=0.7, filename = "orig_circuit_with_barriers.png", output='mpl', style='color', plot_barriers = False)
     
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
     img = device.draw()
@@ -139,7 +139,7 @@ def run_sabre(circuit_info, coupling, count_physical_qubit):
     orig_dagcircuit = circuit_to_dag(qc)
     orig_dagcircuit.draw(scale=0.7, filename='orig_dagcircuit.png', style='color')
     
-    count_swap, depth = run_sabre_on_dag(orig_dagcircuit, coupling, True)
+    count_swap, depth = run_sabre_on_dag(orig_dagcircuit, coupling, True, layout_trials)
     
     return count_swap, depth
     
@@ -164,7 +164,7 @@ def run_sabre(circuit_info, coupling, count_physical_qubit):
 
 def _add_gate_to_dagcircuit(gate, qubit_array, dagcircuit):
     if len(gate) == 1:
-        instruction = CircuitInstruction(operation=Instruction(name='h', num_qubits=1, num_clbits=0, params=[]), qubits=(qubit_array[gate[0]]))
+        instruction = CircuitInstruction(operation=Instruction(name='h', num_qubits=1, num_clbits=0, params=[]), qubits=[qubit_array[gate[0]]])
         dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits)
         
     elif len(gate) == 2:
@@ -177,6 +177,9 @@ def construct_dagcircuit3(circuit_info, coupling, count_physical_qubit, index, c
 #     qregs = [QuantumRegister(size=16, name='q') for i in range(count_physical_qubit)]
     
     qubit_array = [Qubit(register=QuantumRegister(size=count_physical_qubit, name='q'), index=i) for i in range(count_physical_qubit)]
+
+    if type(qubit_array)== Qubit:
+        print(f"qubit_array of type {type(qubit_array)} is {qubit_array}")
     
     dagcircuit.add_qubits(qubit_array)
     

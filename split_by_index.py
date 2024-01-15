@@ -80,9 +80,10 @@ def get_device_by_name(name, swap_duration):
                         connection=device_set_edge[name], swap_duration=swap_duration)
     return device
 
-def run_sabre_with_dag_formation(obj_is_swap, circuit_info, circuit_name, mode, device, use_sabre, encoding, swap_bound = -1):
-    lsqc_solver = OLSQ(obj_is_swap = obj_is_swap, mode=mode, encoding = encoding, swap_up_bound=swap_bound)
+def run_sabre_with_dag_formation(obj_is_swap, circuit_info, circuit_name, device_name, mode, device, use_sabre, encoding, swap_bound = -1, layout_trials=1):
+    lsqc_solver = OLSQ(obj_is_swap = obj_is_swap, mode=mode, encoding = encoding, swap_up_bound=swap_bound, layout_trials=layout_trials)
     lsqc_solver.set_circuit_name(circuit_name)
+    lsqc_solver.set_device_name(device_name)
     lsqc_solver.setprogram(circuit_info)
     lsqc_solver.setdevice(device)
     result = lsqc_solver.run_sabre_with_dag_formation_at_all_indices()
@@ -112,15 +113,23 @@ if __name__ == "__main__":
         help="user define swap bound")
     parser.add_argument("--swap_duration", dest="swap_duration", type=int, default=1,
         help="swap duration")
+    parser.add_argument("--layout_trials", dest="layout_trials", type=int, default=1,
+        help="sabre layout trials")
     # Read arguments from command line
     
     args = parser.parse_args()
+
+    print(args.layout_trials)
+    
     circuit_name = args.qasm.replace(".qasm", "")
     circuit_info = open(args.qasm, "r").read()
     if args.device_type == "grid":
         device = get_nnGrid(args.device, args.swap_duration)
+        device_name = str(args.device) + 'x'+ str(args.device) + "grid"
     else:
         device = get_device_by_name(args.device_type, args.swap_duration)
+        device_name = args.device_type
+
 
     data = dict()
     b_file = args.qasm.split('.')
@@ -132,9 +141,5 @@ if __name__ == "__main__":
     mode = "normal"
     if args.tran:
         mode = "transition"
-    result = run_sabre_with_dag_formation(args.swap, circuit_info, circuit_name, mode, device, args.sabre, args.encoding)
-    data["device"] = str(args.device)
-    data["mode"] = mode
-    data["swap_count"] = result[0]
-    data["depth"] = result[1]
+    result = run_sabre_with_dag_formation(args.swap, circuit_info, circuit_name, device_name, mode, device, args.sabre, args.encoding, args.layout_trials)
     
