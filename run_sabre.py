@@ -94,7 +94,6 @@ def get_device_by_name(name, swap_duration):
 #     pass_manager2 = PassManager(sbs)
 #     sabre_cir = pass_manager2.run(sabre_cir)
 #     sabre_cir.draw(scale=0.7, filename="sabrecir2.png", output='mpl', style='color')
-    
 
 # def run_sabre_on_partitioned_circuit(obj_is_swap, circuit_info, mode, device, use_sabre, encoding, swap_bound = -1):
 #     left_circut, right_circuit = self.partition_circuit(circuit_info)

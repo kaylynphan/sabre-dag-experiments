@@ -9,8 +9,9 @@ from qiskit.compiler import transpile
 from collections import deque
 from qiskit.dagcircuit import DAGDependency, DAGDepNode, DAGCircuit
 from qiskit.circuit import Qubit, QuantumRegister, Gate, CircuitInstruction, Instruction
+from qiskit.converters import circuit_to_dagdependency, circuit_to_dag, dag_to_circuit
 import rustworkx as rx
-
+import collections
 
 def partition_circuit(circuit_info, index):
     if index < 0 or index >= len(circuit_info):
@@ -18,40 +19,6 @@ def partition_circuit(circuit_info, index):
     left = reversed(circuit_info[:index])
     right = circuit_info[index:]
     return left, right
-    
-# Not working code. Only for proof of concept
-def left_pass_and_right_pass(circuit_info, index, count_physical_qubit):
-    left_circuit_info_reversed, right_info_circuit = self.partition_circuit(circuit_info, index)
-    left_qc = construct_qc(left_circuit_info_reversed, count_physical_qubit)
-    right_qc = construct_qc(right_circuit_info, count_physical_qubit)
-    
-    # random initial layout
-    seed = np.random.randint(0, np.iinfo(np.int32).max)
-    rng = np.random.default_rng(seed)
-    physical_qubits = rng.choice(self.coupling_map.size(), len(dag.qubits), replace=False)
-    physical_qubits = rng.permutation(physical_qubits)
-    initial_layout = Layout({q: dag.qubits[i] for i, q in enumerate(physical_qubits)})
-    
-    # left pass    
-    pm = sabre_layout_pass_manager();
-    new_circ = pm.run(left_qc)
-    # Update initial layout and reverse the unmapped circuit.
-    pass_final_layout = pm.property_set["final_layout"]
-    final_layout = self._compose_layouts(
-        initial_layout, pass_final_layout, new_circ.qregs
-    )
-    initial_layout = final_layout
-    
-    # right pass
-    pm = self.sabre_layout_pass_manager();
-    new_circ = pm.run(right_qc)
-    # Update initial layout and reverse the unmapped circuit.
-    pass_final_layout = pm.property_set["final_layout"]
-    final_layout = self._compose_layouts(
-        initial_layout, pass_final_layout, new_circ.qregs
-    )
-    return final_layout
-    
     
 def construct_qc(list_gate, count_physical_qubit): # list_gate is a tuple of lists
     qc = QuantumCircuit(count_physical_qubit)
@@ -88,6 +55,36 @@ def run_sabre_on_dag(dagcircuit, coupling, orig, layout_trials):
     #     sabre_cir.draw(scale=0.7, filename="sabrecir_orig.png", output='mpl', style='color')
     # else:
     #     sabre_cir.draw(scale=0.7, filename="sabrecir_from_dag.png", output='mpl', style='color')
+    
+    count_swap = 0
+    for gate in sabre_cir.data:
+        # print(gate[0].name)
+        # print(gate[0].num_qubits)
+        if gate[0].name == 'swap':
+            count_swap += 1
+
+    return count_swap, sabre_cir.depth()
+
+def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical_qubit, initial_mapping, left):
+    # initialize sabre
+    # ["basic", "lookahead", "decay"]
+    # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
+
+    qc = construct_qc(circuit_info, count_physical_qubit)
+    device = CouplingMap(couplinglist = coupling, description="sabre_test")
+
+    sl = SetLayout(initial_mapping)
+    pm1 = PassManager(sl)
+    sabre_cir = pm1.run(qc)
+
+    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
+    pm2 = PassManager(sbs)
+    sabre_cir = pm2.run(sabre_cir)
+    
+    if left:
+      sabre_cir.draw(scale=0.7, filename="sabrecir_left.png", output='mpl', style='color')
+    else:
+      sabre_cir.draw(scale=0.7, filename="sabrecir_right.png", output='mpl', style='color')
     
     count_swap = 0
     for gate in sabre_cir.data:
