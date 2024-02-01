@@ -72,6 +72,7 @@ class BidirectionalDAGCircuit:
         consistency with Circuit.width() [qiskit-terra #2564].
         """
         return len(self.qubits)
+    
     # START: GETTERS AND SETTERS TO MAKE CLASS COMPATIBLE WITH QISKIT'S SABRELAYOUT PASS
 
     def global_phase(self):

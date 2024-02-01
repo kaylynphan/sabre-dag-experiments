@@ -2,10 +2,9 @@ import argparse
 from sabre_dag_experiments.device import qcdevice
 from sabre_dag_experiments.driver import Driver
 '''
-    %run run_sabre.py --dt grid --d 4 --f example/ --qf benchmark/qaoa/qaoa_16_0.qasm
-
+    How to run:
+    python3 split_by_index.py --dt grid --d 4 --f example/ --qf benchmark/qaoa/qaoa_16_0.qasm --layout_trials 1
 '''
-
 
 def get_nnGrid(n: int, swap_duration):
     my_coupling = []
@@ -77,17 +76,18 @@ def get_device_by_name(name, swap_duration):
                         connection=device_set_edge[name], swap_duration=swap_duration)
     return device
 
-def run_sabre_with_dag_formation(obj_is_swap, circuit_info, circuit_name, device_name, mode, device, use_sabre, encoding, swap_bound = -1, layout_trials=1):
-    lsqc_solver = Driver(obj_is_swap = obj_is_swap, mode=mode, encoding = encoding, swap_up_bound=swap_bound, layout_trials=layout_trials)
-    lsqc_solver.set_circuit_name(circuit_name)
-    lsqc_solver.set_device_name(device_name)
-    lsqc_solver.setprogram(circuit_info)
-    lsqc_solver.setdevice(device)
-    result = lsqc_solver.run_sabre_with_dag_formation_at_all_indices()
-    return result
+# # QUEUE METHOD incorrectly introduces dependencies between gates from different partition
+# def run_sabre_with_dag_formation(obj_is_swap, circuit_info, circuit_name, device_name, mode, device, use_sabre, encoding, swap_bound = -1, layout_trials=1):
+#     lsqc_solver = Driver(obj_is_swap = obj_is_swap, mode=mode, encoding = encoding, swap_up_bound=swap_bound, layout_trials=layout_trials)
+#     lsqc_solver.set_circuit_name(circuit_name)
+#     lsqc_solver.set_device_name(device_name)
+#     lsqc_solver.setprogram(circuit_info)
+#     lsqc_solver.setdevice(device)
+#     result = lsqc_solver.run_sabre_with_dag_formation_at_all_indices()
+#     return result
 
-def build_bidirectional_initial_mappings(obj_is_swap, circuit_info, circuit_name, device_name, mode, device, use_sabre, encoding, swap_bound = -1, layout_trials=1):
-    lsqc_solver = Driver(obj_is_swap = obj_is_swap, mode=mode, encoding = encoding, swap_up_bound=swap_bound, layout_trials=layout_trials)
+def build_bidirectional_initial_mappings(circuit_info, circuit_name, device_name, device, layout_trials):
+    lsqc_solver = Driver(layout_trials)
     lsqc_solver.set_circuit_name(circuit_name)
     lsqc_solver.set_device_name(device_name)
     lsqc_solver.setprogram(circuit_info)
@@ -123,9 +123,6 @@ if __name__ == "__main__":
     # Read arguments from command line
     
     args = parser.parse_args()
-
-    print(args.layout_trials)
-    
     circuit_name = args.qasm.replace(".qasm", "")
     circuit_info = open(args.qasm, "r").read()
     if args.device_type == "grid":
@@ -135,7 +132,6 @@ if __name__ == "__main__":
         device = get_device_by_name(args.device_type, args.swap_duration)
         device_name = args.device_type
 
-
     data = dict()
     b_file = args.qasm.split('.')
     b_file = b_file[-2]
@@ -143,8 +139,8 @@ if __name__ == "__main__":
     b_file = b_file[-1]
     file_name = args.folder+"/"+str(args.device_type)+"_"+b_file+".json"
 
-    mode = "normal"
-    if args.tran:
-        mode = "transition"
-    result = build_bidirectional_initial_mappings(args.swap, circuit_info, circuit_name, device_name, mode, device, args.sabre, args.encoding, args.layout_trials)
+    layout_trials = args.layout_trials
+    print(f"layout_trials is {layout_trials}")
+
+    result = build_bidirectional_initial_mappings(circuit_info, circuit_name, device_name, device, layout_trials)
     

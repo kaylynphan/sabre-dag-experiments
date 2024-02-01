@@ -5,10 +5,9 @@ import json
 import timeit
 
 '''
-    %run run_sabre.py --dt grid --d 4 --f example/ --qf benchmark/qaoa/qaoa_16_0.qasm
-
+    python3 run_sabre.py --dt grid --d 4 --f example/ --qf benchmark/qaoa/qaoa_16_0.qasm
+    Please do not use this file. It was created for getting familiar with SABRE. See split_by_index.py
 '''
-
 
 def get_nnGrid(n: int, swap_duration):
     my_coupling = []

@@ -1,18 +1,13 @@
-from qiskit.transpiler import CouplingMap, Layout
+from qiskit.transpiler import CouplingMap
 from qiskit import QuantumCircuit
-from qiskit.transpiler import PassManager
-from qiskit.transpiler.passes import SabreLayout, SabreSwap, ApplyLayout, SetLayout
+from qiskit.transpiler.passes import SabreLayout
 from qiskit.converters import *
-from qiskit.transpiler.passes import Unroller
-from rustworkx.visualization import graphviz_draw
-from qiskit.compiler import transpile
-from collections import deque
-from qiskit.dagcircuit import DAGDependency, DAGDepNode, DAGCircuit
+from qiskit.dagcircuit import DAGCircuit
 from sabre_dag_experiments.bidirectional_dag_circuit import BidirectionalDAGCircuit
-from qiskit.circuit import Qubit, QuantumRegister, Gate, CircuitInstruction, Instruction
-import rustworkx as rx
-import collections
+from qiskit.circuit import Qubit, QuantumRegister, CircuitInstruction, Instruction
 import copy
+
+# Several methods to construct, manipulate, and transpile a DAGCircuit
 
 def circuit_to_dag(circuit, copy_operations=True, *, qubit_order=None, clbit_order=None):
     """
@@ -76,7 +71,7 @@ def _add_gate_to_dagcircuit(gate, qubit_array, bidirectional_dagcircuit, left):
         instruction = CircuitInstruction(operation=Instruction(name='cx', num_qubits=2, num_clbits=0, params=[]), qubits=(qubit_array[gate[0]], qubit_array[gate[1]]))
         bidirectional_dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits, left)
 
-def test_dagcircuit_class(circuit_info, coupling, count_physical_qubit, index, circuit_name): 
+def draw_dagcircuit_info(circuit_info, coupling, count_physical_qubit, index, circuit_name):
     left_circuit_info_reversed = reversed(circuit_info[:index])
     right_circuit_info = circuit_info[index:]
 
@@ -86,6 +81,22 @@ def test_dagcircuit_class(circuit_info, coupling, count_physical_qubit, index, c
     left_dag = circuit_to_dag(left_qc)
     right_dag = circuit_to_dag(right_qc)
 
+    left_img = left_dag.draw(scale=0.7, style='color')
+    left_img.save(f'left_dagcircuit_index_{index}.png')
+    right_img = right_dag.draw(scale=0.7, style='color')
+    right_img.save(f'right_dagcircuit_index_{index}.png')
+
+
+def test_dagcircuit_class(circuit_info, coupling, count_physical_qubit, index, circuit_name): 
+    # left_circuit_info_reversed = reversed(circuit_info[:index])
+    # right_circuit_info = circuit_info[index:]
+
+    # left_qc = construct_qc(left_circuit_info_reversed, count_physical_qubit)
+    # right_qc = construct_qc(right_circuit_info, count_physical_qubit)
+    
+    # left_dag = circuit_to_dag(left_qc)
+    # right_dag = circuit_to_dag(right_qc)
+
     # left_img = left_dag.draw(scale=0.7, style='color')
     # left_img.save('left_dagcircuit.png')
     # right_img = right_dag.draw(scale=0.7, style='color')
@@ -93,22 +104,13 @@ def test_dagcircuit_class(circuit_info, coupling, count_physical_qubit, index, c
 
     bidirectional_dag = construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qubit, index)
 
-    if index == 6:
-        bidirectional_img = bidirectional_dag.draw(scale=0.7, style='color')
-        bidirectional_img.save('bidirectional_dagcircuit.png')
-
     # Attempt to run sabre on this bidirectional DAG
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
     # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
     sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
     
     out_dag = sbl.run(bidirectional_dag)
-    print("initial layout achieved by SABRE on bidirectional dagcircuit")
     initial_layout = sbl.property_set['layout']
-
-    if index == 6:
-        sabre_cir = dag_to_circuit(out_dag)
-        sabre_cir.draw(scale=0.7, filename="sabrecir_compiled_from_bidirectional_dag.png", output='mpl', style='color')
 
     # print(initial_layout)
     return out_dag, initial_layout
@@ -125,45 +127,6 @@ def construct_qc(list_gate, count_physical_qubit): # list_gate is a tuple of lis
             raise TypeError("Currently only support one and two-qubit gate.")
     return qc
 
-def construct_dagcircuit3(circuit_info, coupling, count_physical_qubit, index, circuit_name): 
-    dagcircuit = DAGCircuit()
-#     qregs = [QuantumRegister(size=16, name='q') for i in range(count_physical_qubit)]
-    
-    qubit_array = [Qubit(register=QuantumRegister(size=count_physical_qubit, name='q'), index=i) for i in range(count_physical_qubit)]
-
-    if type(qubit_array)== Qubit:
-        print(f"qubit_array of type {type(qubit_array)} is {qubit_array}")
-    
-    dagcircuit.add_qubits(qubit_array)
-    
-    left_queue = collections.deque(reversed(circuit_info[:index]))
-    # print("left queue")
-    # print(left_queue)
-    right_queue = collections.deque(circuit_info[index+1:])
-    # print("right queue")
-    # print(right_queue)
-    
-    _add_gate_to_dagcircuit(circuit_info[index], qubit_array, dagcircuit)
-    
-    while left_queue and right_queue:
-        l = left_queue.popleft()
-        r = right_queue.popleft()
-        _add_gate_to_dagcircuit(l, qubit_array, dagcircuit)
-        _add_gate_to_dagcircuit(r, qubit_array, dagcircuit)
-        
-    while left_queue:
-        l = left_queue.popleft()
-        _add_gate_to_dagcircuit(l, qubit_array, dagcircuit)
-    
-    while right_queue:
-        r = right_queue.popleft()
-        _add_gate_to_dagcircuit(r, qubit_array, dagcircuit)
-        
-    # img = dagcircuit.draw(scale=0.7, style='color') # filename='images/{}/index_{}_dagcircuit.png'.format(circuit_name, index),
-    # img.save('images/{}/index_{}_dagcircuit.png'.format(circuit_name, index))
-    
-    return dagcircuit
-
 def construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qubit, index):
     left_circuit_info = reversed(circuit_info[:index])
     right_circuit_info = circuit_info[index:]
@@ -179,7 +142,20 @@ def construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qu
     
     return graph
 
+def run_sabre_on_dag(dagcircuit, coupling, orig, layout_trials):
+    device = CouplingMap(couplinglist = coupling, description="sabre_test")
+    # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
+    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials)
+    
+    out_dag = sbl.run(dagcircuit)
+    sabre_cir = dag_to_circuit(out_dag)
+    
+    count_swap = 0
+    for gate in sabre_cir.data:
+        if gate[0].name == 'swap':
+            count_swap += 1
 
+    return count_swap, sabre_cir.depth()
 
 # def construct_dagcircuit(circuit_info, coupling, count_physical_qubit, index):
 #     if index < 0 or index >= len(circuit_info):
@@ -246,3 +222,42 @@ def construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qu
     
 #     left_dag.draw(scale=0.7, filename='left_dagdependency.png', style='color')
 #     right_dag.draw(scale=0.7, filename='right_dagdependency.png', style='color')
+
+# def construct_dagcircuit_queue_method(circuit_info, coupling, count_physical_qubit, index, circuit_name): 
+#     dagcircuit = DAGCircuit()
+# #     qregs = [QuantumRegister(size=16, name='q') for i in range(count_physical_qubit)]
+    
+#     qubit_array = [Qubit(register=QuantumRegister(size=count_physical_qubit, name='q'), index=i) for i in range(count_physical_qubit)]
+
+#     if type(qubit_array)== Qubit:
+#         print(f"qubit_array of type {type(qubit_array)} is {qubit_array}")
+    
+#     dagcircuit.add_qubits(qubit_array)
+    
+#     left_queue = collections.deque(reversed(circuit_info[:index]))
+#     # print("left queue")
+#     # print(left_queue)
+#     right_queue = collections.deque(circuit_info[index+1:])
+#     # print("right queue")
+#     # print(right_queue)
+    
+#     _add_gate_to_dagcircuit(circuit_info[index], qubit_array, dagcircuit)
+    
+#     while left_queue and right_queue:
+#         l = left_queue.popleft()
+#         r = right_queue.popleft()
+#         _add_gate_to_dagcircuit(l, qubit_array, dagcircuit)
+#         _add_gate_to_dagcircuit(r, qubit_array, dagcircuit)
+        
+#     while left_queue:
+#         l = left_queue.popleft()
+#         _add_gate_to_dagcircuit(l, qubit_array, dagcircuit)
+    
+#     while right_queue:
+#         r = right_queue.popleft()
+#         _add_gate_to_dagcircuit(r, qubit_array, dagcircuit)
+        
+#     # img = dagcircuit.draw(scale=0.7, style='color') # filename='{}/index_{}_dagcircuit.png'.format(circuit_name, index),
+#     # img.save('{}/index_{}_dagcircuit.png'.format(circuit_name, index))
+    
+#     return dagcircuit
