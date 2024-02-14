@@ -1,7 +1,8 @@
 from sabre_dag_experiments.device import qcdevice
 from sabre_dag_experiments.input import input_qasm
+from qiskit.converters import *
 from sabre_dag_experiments.qc_helpers import run_sabre, apply_layout_and_generate_sabre_swaps, construct_qc
-from sabre_dag_experiments.dag_helpers import test_dagcircuit_class, run_sabre_on_dag
+from sabre_dag_experiments.dag_helpers import test_dagcircuit_class, run_sabre_on_dag, construct_bidirectional_dagcircuit
 from qiskit.transpiler import PassManager, CouplingMap
 from qiskit.transpiler.passes import SabreLayout
 
@@ -136,7 +137,68 @@ class Driver:
             raise TypeError("Only support sabre.")
         return swap_num, depth
     
-    def build_bidirectional_initial_mappings(self):
+    def build_bidirectional_initial_mapping(self, index):
+        print("Drawing original circuit in orig_circuit.png")
+        qc = construct_qc(self.list_gate_qubits, self.count_physical_qubit)
+        qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
+        device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
+
+        print(f"Compiling original circuit with sabre (via SabreLayout pass/PassManager) with layout_trials={self.layout_trials}...")
+        sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=self.layout_trials)
+        pm = PassManager(sbl)
+        sabre_cir = pm.run(qc)
+        print("Drawing circuit in orig_sabre_compiled_circuit.png")
+        sabre_cir.draw(scale=0.7, filename = "orig_sabre_circuit.png", output='mpl', style='color', with_layout=True)
+        
+        swap_count, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
+        print(f"Original Sabre achieves swap count: {swap_count} and depth: {depth}")
+
+        print(f"Running Sabre on BiDAG partitioned at index {index}...")
+
+
+        ####
+
+        bidirectional_dag = construct_bidirectional_dagcircuit(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, index)
+        print("Visualizing Reverse Circuit as Sabre will use for forward and backward pass...")
+        for_cir = dag_to_circuit(bidirectional_dag)
+        for_cir.draw(scale=0.7, filename = "cir_used_for_sabre_forward_pass.png", output='mpl', style='color', with_layout=True)
+        rev_cir = for_cir.reverse_ops()
+        rev_cir.draw(scale=0.7, filename = "cir_used_for_sabre_backward_pass.png", output='mpl', style='color', with_layout=True)
+
+        initial_layout, out_cir, swap_num, depth = run_sabre_on_dag(bidirectional_dag, self.list_qubit_edge, self.layout_trials)
+
+        print(f"Drawing output of SabreLayout on BiDAG")
+        out_cir.draw(scale=0.7, filename = "bidag_sabre_cir.png", output='mpl', style='color', with_layout=True)
+
+        ###
+
+        # dag, initial_layout = test_dagcircuit_class(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, index, self.circuit_name)
+
+        # print("Visualizing Reverse Circuit as Sabre will use for forward and backward pass...")
+        # for_cir = dag_to_circuit(dag)
+        # for_cir.draw(scale=0.7, filename = "cir_used_for_sabre_forward_pass.png", output='mpl', style='color', with_layout=True)
+        # rev_cir = for_cir.reverse_ops()
+        # rev_cir.draw(scale=0.7, filename = "cir_used_for_sabre_backward_pass.png", output='mpl', style='color', with_layout=True)
+        
+        # initial_layout, swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
+        #
+
+        print(f"Swap Count when running on BiDAG: {swap_num}")
+
+        print(f"Verifying mapping at index {index}...")
+
+        print(f"Initial layout at index {index}")
+        print(initial_layout)
+  
+        left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, index, self.layout_trials)
+        print(f"Left Swap count: {left_swap_count}")
+        print(f"Left Depth: {left_depth}")
+
+        right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, False, index, self.layout_trials)
+        print(f"Right Swap count: {right_swap_count}")
+        print(f"Right Depth: {right_depth}")
+    
+    def build_bidirectional_initial_mappings_for_all_indices(self):
         swap_counts = []
         depths = []
         min_indices = []
@@ -164,7 +226,7 @@ class Driver:
         for i in range(len(self.list_gate_qubits)):
             dag, initial_layout = test_dagcircuit_class(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)    
 
-            swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, False, self.layout_trials)
+            swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
             if swap_num < min_swap_count:
                 min_indices = [i]
                 min_swap_count = swap_num
@@ -226,7 +288,7 @@ class Driver:
     #     for i in range(len(self.list_gate_qubits)):
     #         # print("Constructing DAGCircuit at index {}".format(i))
     #         dag = construct_dagcircuit_queue_method(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)        
-    #         swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, False, self.layout_trials)
+    #         swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
     #         if swap_num < min_swap_count:
     #             min_indices = [i]
     #             min_swap_count = swap_num

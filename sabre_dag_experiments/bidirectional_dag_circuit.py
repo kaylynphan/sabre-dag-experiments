@@ -1,3 +1,17 @@
+# This code is part of Qiskit.
+#
+# (C) Copyright IBM 2017, 2021.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+#
+# Any modifications or derivative works of this code must retain this
+# copyright notice, and modified files need to carry a notice indicating
+# that they have been altered from the originals.
+
+# This work is a modification of Qiskit's DAGCircuit class.
+
 import rustworkx as rx
 from collections import OrderedDict, defaultdict, deque, namedtuple
 from typing import Dict, Generator, Any, List
@@ -63,6 +77,7 @@ class BidirectionalDAGCircuit:
 
         self.duration = None
         self._global_phase = 0
+        self._calibrations = defaultdict(dict)
         self.unit = "dt"
 
     def num_qubits(self):
@@ -73,8 +88,9 @@ class BidirectionalDAGCircuit:
         """
         return len(self.qubits)
     
-    # START: GETTERS AND SETTERS TO MAKE CLASS COMPATIBLE WITH QISKIT'S SABRELAYOUT PASS
+    # START: GETTERS AND SETTERS TO MAKE CLASS COMPATIBLE WITH QISKIT'S SABRELAYOUT PASS AND QISKIT'S CONVERTERS
 
+    @property
     def global_phase(self):
         """Return the global phase of the circuit."""
         return self._global_phase
@@ -83,9 +99,14 @@ class BidirectionalDAGCircuit:
         """Return the total number of classical bits used by the circuit."""
         return len(self.clbits) # should be zero
     
-    def global_phase(self):
-        """Return the global phase of the circuit."""
-        return self._global_phase
+    @property
+    def calibrations(self):
+        """Return calibration dictionary.
+
+        The custom pulse definition of a given gate is of the form
+            {'gate_name': {(qubits, params): schedule}}
+        """
+        return dict(self._calibrations)
     
     # END: GETTERS AND SETTERS TO MAKE CLASS COMPATIBLE WITH QISKIT'S SABRELAYOUT PASS
     
@@ -129,7 +150,17 @@ class BidirectionalDAGCircuit:
             key = _key
 
         return iter(rx.lexicographical_topological_sort(self._multi_graph, key=key))
+    
+    def merge_output_nodes(self):
+        for k in self.output_map_left.keys():
+            left_v = self.output_map_left[k]
+            right_v = self.output_map_right[k]
 
+            # print(left_v)
+            # print(type(left_v))
+
+            self._multi_graph.merge_nodes(left_v._node_id, right_v._node_id)
+        
     def add_qubits(self, qubits):
         """Add individual qubit wires."""
         if any(not isinstance(qubit, Qubit) for qubit in qubits):

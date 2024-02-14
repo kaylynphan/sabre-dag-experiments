@@ -86,13 +86,21 @@ def get_device_by_name(name, swap_duration):
 #     result = lsqc_solver.run_sabre_with_dag_formation_at_all_indices()
 #     return result
 
-def build_bidirectional_initial_mappings(circuit_info, circuit_name, device_name, device, layout_trials):
+def build_bidirectional_initial_mappings_for_all_indices(circuit_info, circuit_name, device_name, device, layout_trials):
     lsqc_solver = Driver(layout_trials)
     lsqc_solver.set_circuit_name(circuit_name)
     lsqc_solver.set_device_name(device_name)
     lsqc_solver.setprogram(circuit_info)
     lsqc_solver.setdevice(device)
-    lsqc_solver.build_bidirectional_initial_mappings()
+    lsqc_solver.build_bidirectional_initial_mappings_for_all_indices()
+
+def build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, layout_trials, index):
+    lsqc_solver = Driver(layout_trials)
+    lsqc_solver.set_circuit_name(circuit_name)
+    lsqc_solver.set_device_name(device_name)
+    lsqc_solver.setprogram(circuit_info)
+    lsqc_solver.setdevice(device)
+    lsqc_solver.build_bidirectional_initial_mapping(index)
 
 if __name__ == "__main__":
     # Initialize parser
@@ -120,6 +128,8 @@ if __name__ == "__main__":
         help="swap duration")
     parser.add_argument("--layout_trials", dest="layout_trials", type=int, default=1,
         help="sabre layout trials")
+    parser.add_argument("--index", dest="index", type=int,
+        help="sabre layout trials")
     # Read arguments from command line
     
     args = parser.parse_args()
@@ -142,5 +152,5 @@ if __name__ == "__main__":
     layout_trials = args.layout_trials
     print(f"layout_trials is {layout_trials}")
 
-    result = build_bidirectional_initial_mappings(circuit_info, circuit_name, device_name, device, layout_trials)
-    
+    # result = build_bidirectional_initial_mappings_for_all_indices(circuit_info, circuit_name, device_name, device, layout_trials)
+    result = build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, layout_trials, args.index)

@@ -139,15 +139,33 @@ def construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qu
         _add_gate_to_dagcircuit(gate, qubit_array, graph, True)
     for gate in right_circuit_info:
         _add_gate_to_dagcircuit(gate, qubit_array, graph, False)
+
+    # For Visualization
+    bidag = graph.draw(scale=0.7, style='color')
+    bidag.save('bidirectional_dagcircuit_before_merging.png')
+
+    graph.merge_output_nodes()
+
+    # For Visualization
+    bidag = graph.draw(scale=0.7, style='color')
+    bidag.save('bidirectional_dagcircuit_after_merging.png')
     
     return graph
 
-def run_sabre_on_dag(dagcircuit, coupling, orig, layout_trials):
+def run_sabre_on_dag(dagcircuit, coupling, layout_trials):
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
     # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
-    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials)
+    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials, skip_routing=True)
     
     out_dag = sbl.run(dagcircuit)
+    initial_layout = sbl.property_set['layout']
+    # print('property_set[\'layout\']')
+    # print(sbl.property_set['layout'])
+    # print('property_set[\'initial_layout\']')
+    # print(sbl.property_set['initial_layout'])
+    # print('property_set[\'final_layout\']')
+    # print(sbl.property_set['final_layout'])
+    
     sabre_cir = dag_to_circuit(out_dag)
     
     count_swap = 0
@@ -155,7 +173,7 @@ def run_sabre_on_dag(dagcircuit, coupling, orig, layout_trials):
         if gate[0].name == 'swap':
             count_swap += 1
 
-    return count_swap, sabre_cir.depth()
+    return initial_layout, sabre_cir, count_swap, sabre_cir.depth()
 
 # def construct_dagcircuit(circuit_info, coupling, count_physical_qubit, index):
 #     if index < 0 or index >= len(circuit_info):
