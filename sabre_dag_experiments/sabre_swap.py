@@ -10,6 +10,8 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
+# Taken from 0.45 
+
 """Routing via SWAP insertion using the SABRE method from Li et al."""
 
 import logging
@@ -178,6 +180,7 @@ class SabreSwap(TransformationPass):
         self.dist_matrix = None
         self.initial_mapping = initial_mapping
 
+
     def run(self, dag):
         """Run the SabreSwap pass on `dag`.
 
@@ -244,6 +247,7 @@ class SabreSwap(TransformationPass):
             self.coupling_map.size(),
             self._qubit_indices,
         )
+        
         sabre_start = time.perf_counter()
         *sabre_result, final_permutation = build_swap_map(
             len(dag.qubits),

@@ -143,6 +143,12 @@ class Driver:
         qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
         device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
 
+        print("Drawing Coupling Map...")
+        device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
+        img = device.draw()
+        img.save("coupling_map.png")
+
+
         print(f"Compiling original circuit with sabre (via SabreLayout pass/PassManager) with layout_trials={self.layout_trials}...")
         sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=self.layout_trials)
         pm = PassManager(sbl)
@@ -211,6 +217,12 @@ class Driver:
         qc = construct_qc(self.list_gate_qubits, self.count_physical_qubit)
         qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
         device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
+
+        print("Drawing Coupling Map...")
+        device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
+        img = device.draw()
+        img.save("coupling_map.png")
+
 
         print(f"Compiling original circuit with sabre (via SabreLayout pass/PassManager) with layout_trials={self.layout_trials}...")
         sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=self.layout_trials)

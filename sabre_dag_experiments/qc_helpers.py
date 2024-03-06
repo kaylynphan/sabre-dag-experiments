@@ -45,14 +45,15 @@ def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical
 
     sl = SetLayout(initial_mapping)
     apl = ApplyLayout()
-    pm1 = PassManager(sl, apl)
+    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping)
+    pm1 = PassManager([sl, apl, sbs])
     sabre_cir = pm1.run(qc)
 
     print(sabre_cir._layout)
 
-    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping) # optionally make trials a parameter
-    pm2 = PassManager(sbs)
-    sabre_cir = pm2.run(sabre_cir)
+    # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping) # optionally make trials a parameter
+    # pm2 = PassManager(sbs)
+    # sabre_cir = pm2.run(sabre_cir)
 
     print(f"final ._layout {'left' if left else 'right'}")
     print(sabre_cir._layout)
