@@ -125,10 +125,13 @@ class BidirectionalDAGCircuit:
         Returns:
             generator(DAGOpNode): op node in topological order
         """
-        # print('topological ordering of bidirectional DAGCircuit')
+        print('topological ordering of bidirectional DAGCircuit')
+        for nd in self.topological_nodes(key):
+            if isinstance(nd, DAGOpNode):
+                print(nd.__repr__())
         # print(nd for nd in self.topological_nodes(key))
         return (nd for nd in self.topological_nodes(key) if isinstance(nd, DAGOpNode))
-    
+
     def topological_nodes(self, key=None):
         """
         Yield nodes in topological order.
@@ -162,6 +165,7 @@ class BidirectionalDAGCircuit:
             self._multi_graph.merge_nodes(left_v._node_id, right_v._node_id)
         
     def add_qubits(self, qubits):
+        print(qubits)
         """Add individual qubit wires."""
         if any(not isinstance(qubit, Qubit) for qubit in qubits):
             raise TypeError("not a Qubit instance.")
@@ -355,3 +359,24 @@ class BidirectionalDAGCircuit:
         from qiskit.visualization.dag_visualization import dag_drawer
 
         return dag_drawer(dag=self, scale=scale, filename=filename, style=style)
+
+    def front_layer(self):
+        """Return a list of op nodes in the first layer of this dag."""
+        graph_layers = self.multigraph_layers()
+        try:
+            next(graph_layers)  # Remove input nodes
+        except StopIteration:
+            return []
+
+        op_nodes = [node for node in next(graph_layers) if isinstance(node, DAGOpNode)]
+
+        return op_nodes
+
+    def multigraph_layers(self):
+        """Yield layers of the multigraph."""
+        first_layer = [x._node_id for x in self.input_map.values()]
+        return iter(rx.layers(self._multi_graph, first_layer))
+    
+    def successors(self, node):
+        """Returns iterator of the successors of a node as DAGOpNodes and DAGOutNodes."""
+        return iter(self._multi_graph.successors(node._node_id))

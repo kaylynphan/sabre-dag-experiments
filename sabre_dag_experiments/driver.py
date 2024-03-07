@@ -132,40 +132,40 @@ class Driver:
     def get_swap_upper_bound(self, heuristic = "sabre"):
         if heuristic == "sabre":
             swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit)
-            print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
+            # print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
         else:
             raise TypeError("Only support sabre.")
         return swap_num, depth
     
     def build_bidirectional_initial_mapping(self, index):
-        print("Drawing original circuit in orig_circuit.png")
+        # print("Drawing original circuit in orig_circuit.png")
         qc = construct_qc(self.list_gate_qubits, self.count_physical_qubit)
         qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
         device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
 
-        print("Drawing Coupling Map...")
+        # print("Drawing Coupling Map...")
         device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
         img = device.draw()
         img.save("coupling_map.png")
 
 
-        print(f"Compiling original circuit with sabre (via SabreLayout pass/PassManager) with layout_trials={self.layout_trials}...")
+        # print(f"Compiling original circuit with sabre (via SabreLayout pass/PassManager) with layout_trials={self.layout_trials}...")
         sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=self.layout_trials)
         pm = PassManager(sbl)
         sabre_cir = pm.run(qc)
-        print("Drawing circuit in orig_sabre_compiled_circuit.png")
+        # print("Drawing circuit in orig_sabre_compiled_circuit.png")
         sabre_cir.draw(scale=0.7, filename = "orig_sabre_circuit.png", output='mpl', style='color', with_layout=True)
         
         swap_count, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
-        print(f"Original Sabre achieves swap count: {swap_count} and depth: {depth}")
+        # print(f"Original Sabre achieves swap count: {swap_count} and depth: {depth}")
 
-        print(f"Running Sabre on BiDAG partitioned at index {index}...")
+        # print(f"Running Sabre on BiDAG partitioned at index {index}...")
 
 
         ####
 
         bidirectional_dag = construct_bidirectional_dagcircuit(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, index)
-        print("Visualizing Reverse Circuit as Sabre will use for forward and backward pass...")
+        # print("Visualizing Reverse Circuit as Sabre will use for forward and backward pass...")
         for_cir = dag_to_circuit(bidirectional_dag)
         for_cir.draw(scale=0.7, filename = "cir_used_for_sabre_forward_pass.png", output='mpl', style='color', with_layout=True)
         rev_cir = for_cir.reverse_ops()
@@ -173,7 +173,7 @@ class Driver:
 
         initial_layout, out_cir, swap_num, depth = run_sabre_on_dag(bidirectional_dag, self.list_qubit_edge, self.layout_trials)
 
-        print(f"Drawing output of SabreLayout on BiDAG")
+        # print(f"Drawing output of SabreLayout on BiDAG")
         out_cir.draw(scale=0.7, filename = "bidag_sabre_cir.png", output='mpl', style='color', with_layout=True)
 
         ###
@@ -189,20 +189,23 @@ class Driver:
         # initial_layout, swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
         #
 
-        print(f"Swap Count when running on BiDAG: {swap_num}")
+        # print(f"Swap Count when running on BiDAG: {swap_num}")
 
-        print(f"Verifying mapping at index {index}...")
+        # print(f"Verifying mapping at index {index}...")
 
-        print(f"Initial layout at index {index}")
-        print(initial_layout)
+        # print(f"Initial layout at index {index}")
+        # print(initial_layout)
   
-        left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, index, self.layout_trials)
-        print(f"Left Swap count: {left_swap_count}")
-        print(f"Left Depth: {left_depth}")
+        # left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, index, self.layout_trials)
+        # print(f"Left Swap count: {left_swap_count}")
+        # print(f"Left Depth: {left_depth}")
 
-        right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, False, index, self.layout_trials)
-        print(f"Right Swap count: {right_swap_count}")
-        print(f"Right Depth: {right_depth}")
+        # right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, False, index, self.layout_trials)
+        # print(f"Right Swap count: {right_swap_count}")
+        # print(f"Right Depth: {right_depth}")
+
+        apply_layout_and_generate_sabre_swaps(bidirectional_dag, self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, index, self.layout_trials)
+
     
     def build_bidirectional_initial_mappings_for_all_indices(self):
         swap_counts = []
@@ -213,28 +216,28 @@ class Driver:
         max_swap_count = 0
         initial_layouts = []
 
-        print("Drawing original circuit in orig_circuit.png")
+        # print("Drawing original circuit in orig_circuit.png")
         qc = construct_qc(self.list_gate_qubits, self.count_physical_qubit)
         qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
         device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
 
-        print("Drawing Coupling Map...")
+        # print("Drawing Coupling Map...")
         device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
         img = device.draw()
         img.save("coupling_map.png")
 
 
-        print(f"Compiling original circuit with sabre (via SabreLayout pass/PassManager) with layout_trials={self.layout_trials}...")
+        # print(f"Compiling original circuit with sabre (via SabreLayout pass/PassManager) with layout_trials={self.layout_trials}...")
         sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=self.layout_trials)
         pm = PassManager(sbl)
         sabre_cir = pm.run(qc)
-        print("Drawing circuit in orig_sabre_circuit.png")
+        # print("Drawing circuit in orig_sabre_circuit.png")
         sabre_cir.draw(scale=0.7, filename = "orig_sabre_circuit.png", output='mpl', style='color', with_layout=True)
         
         swap_count, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
-        print(f"Sabre achieves swap count: {swap_count} and depth: {depth}")
+        # print(f"Sabre achieves swap count: {swap_count} and depth: {depth}")
 
-        print("Testing BiDAG at several indices")
+        # print("Testing BiDAG at several indices")
         for i in range(len(self.list_gate_qubits)):
             dag, initial_layout = test_dagcircuit_class(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)    
 

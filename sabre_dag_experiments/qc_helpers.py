@@ -5,6 +5,8 @@ from sabre_dag_experiments.sabre_swap import SabreSwap
 from qiskit.transpiler.passes import SabreLayout, ApplyLayout, SetLayout
 from qiskit.converters import *
 
+from sabre_dag_experiments.bidag_sabre_swap import BiDAGSabreSwap
+
 def partition_circuit(circuit_info, index):
     if index < 0 or index >= len(circuit_info):
         print("Bad index passed into partition_circuit")
@@ -36,31 +38,37 @@ def construct_qc_with_barriers(list_gate, count_physical_qubit): # list_gate is 
         qc.barrier()
     return qc
 
-def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical_qubit, initial_mapping, left, index, layout_trials):
+def apply_layout_and_generate_sabre_swaps(bidag, circuit_info, coupling, count_physical_qubit, initial_mapping, left, index, layout_trials):
     if left:
       qc = construct_qc(reversed(circuit_info[:index]), count_physical_qubit)
     else:
       qc = construct_qc(circuit_info[index:], count_physical_qubit)
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
 
-    sl = SetLayout(initial_mapping)
-    apl = ApplyLayout()
-    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping)
-    pm1 = PassManager([sl, apl, sbs])
-    sabre_cir = pm1.run(qc)
+    sbs = BiDAGSabreSwap(bidag=bidag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=None, trials=None)
+    swaps, final_qc = sbs.run()
+    print("final sabre result")
+    print(swaps)
+    print(f"{len(swaps)} swaps")
 
-    print(sabre_cir._layout)
+    # sl = SetLayout(initial_mapping)
+    # apl = ApplyLayout()
+    # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping)
+    # pm1 = PassManager([sl, apl, sbs])
+    # sabre_cir = pm1.run(qc)
+
+    # print(sabre_cir._layout)
 
     # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping) # optionally make trials a parameter
     # pm2 = PassManager(sbs)
     # sabre_cir = pm2.run(sabre_cir)
 
-    print(f"final ._layout {'left' if left else 'right'}")
-    print(sabre_cir._layout)
+    # print(f"final ._layout {'left' if left else 'right'}")
+    # print(sabre_cir._layout)
 
 
-    print(f'final layout {"left" if left else "right"}')
-    print(sbs.property_set['final_layout'])
+    # print(f'final layout {"left" if left else "right"}')
+    # print(sbs.property_set['final_layout'])
     
     if left:
       print(f"Drawing left circuit at bidag_index_{index}_left_circuit.png")
