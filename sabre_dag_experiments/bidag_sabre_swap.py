@@ -1,6 +1,6 @@
 from qiskit._accelerate.nlayout import NLayout
 from qiskit import QuantumRegister, QuantumCircuit
-from qiskit.dagcircuit.dagnode import DAGOpNode
+from sabre_dag_experiments.bidag_op_node import DAGOpNode
 import numpy as np
 import random
 import copy
@@ -59,6 +59,7 @@ class BiDAGSabreSwap:
     self.mutable_mapping = self.initial_mapping.copy()
     final_mapping = None
     inserted_swaps = []
+    self.executed_gates_set = set()
 
     final_qc = QuantumCircuit(self.num_qubits)
 
@@ -78,12 +79,17 @@ class BiDAGSabreSwap:
       if len(execute_gate_list) > 0:
         for gate in execute_gate_list:
           F.remove(gate)
+          if gate in self.executed_gates_set:
+            print("looks like gate uniqueness is not IDed")
+          self.executed_gates_set.add(gate)
           print(f'removing gate {gate.__repr__()}')
           successors = self.get_successors(gate)
           print(f'successors: {successors}')
-          F_targets = self.get_F_targets(F)
           for s in successors:
-            if self.has_resolved_dependencies(s, F_targets):
+            print("parents")
+            print(s.parents)
+            if self.has_resolved_dependencies(s):
+              print("has resolved dependencies")
               F.append(s)
       else:
         F_targets = self.get_F_targets(F)
@@ -155,14 +161,15 @@ class BiDAGSabreSwap:
     succeeding_dag_op_nodes = [s for s in successors if isinstance(s, DAGOpNode)]
     return succeeding_dag_op_nodes
 
-  def has_resolved_dependencies(self, gate, F_set):
+  def has_resolved_dependencies(self, gate):
     # check that there is no gate in F that operates on the same qubits as those executed on by gate
     # print(gate.__repr__())
-    logical_qubits = [qarg.index for qarg in gate.qargs]
-    if F_set.intersection(logical_qubits):
-      return False
+
+    for parent in gate.parents:
+      if isinstance(parent, DAGOpNode) and parent not in self.executed_gates_set:
+        return False
     return True
-  
+    
   def obtain_swaps(self, F_targets):
     # F is a list of DAGOpNodes
     # print(F_targets.__repr__())

@@ -18,7 +18,7 @@ from typing import Dict, Generator, Any, List
 from qiskit.circuit.quantumregister import QuantumRegister, Qubit
 
 from qiskit.circuit.classicalregister import ClassicalRegister, Clbit
-from qiskit.dagcircuit.dagnode import DAGNode, DAGOpNode, DAGInNode, DAGOutNode
+from sabre_dag_experiments.bidag_op_node import DAGNode, DAGOpNode, DAGInNode, DAGOutNode
 from qiskit.circuit.bit import Bit
 
 
@@ -125,10 +125,10 @@ class BidirectionalDAGCircuit:
         Returns:
             generator(DAGOpNode): op node in topological order
         """
-        print('topological ordering of bidirectional DAGCircuit')
-        for nd in self.topological_nodes(key):
-            if isinstance(nd, DAGOpNode):
-                print(nd.__repr__())
+        # print('topological ordering of bidirectional DAGCircuit')
+        # for nd in self.topological_nodes(key):
+        #     if isinstance(nd, DAGOpNode):
+        #         print(nd.__repr__())
         # print(nd for nd in self.topological_nodes(key))
         return (nd for nd in self.topological_nodes(key) if isinstance(nd, DAGOpNode))
 
@@ -165,7 +165,7 @@ class BidirectionalDAGCircuit:
             self._multi_graph.merge_nodes(left_v._node_id, right_v._node_id)
         
     def add_qubits(self, qubits):
-        print(qubits)
+        # print(qubits)
         """Add individual qubit wires."""
         if any(not isinstance(qubit, Qubit) for qubit in qubits):
             raise TypeError("not a Qubit instance.")
@@ -223,6 +223,9 @@ class BidirectionalDAGCircuit:
             self.output_map_right[wire] = outp_node_right
             self._multi_graph.add_edge(inp_node._node_id, outp_node_left._node_id, wire)
             self._multi_graph.add_edge(inp_node._node_id, outp_node_right._node_id, wire)
+
+            outp_node_left.parents = [inp_node]
+            outp_node_right.parents = [inp_node]
         else:
             # raise KeyError(f"duplicate wire {wire}")
             print(f"KeyError(duplicate wire {wire})")
@@ -304,10 +307,23 @@ class BidirectionalDAGCircuit:
         # operation node while deleting the old in-edges of the output nodes
         # and adding new edges from the operation node to each output node
         
-        ref_nodes = [self.output_map_left[bit]._node_id for bits in (qargs, all_cbits) for bit in bits] if left else [self.output_map_right[bit]._node_id for bits in (qargs, all_cbits) for bit in bits]
+        ref_nodes_idx = [self.output_map_left[bit]._node_id for bits in (qargs, all_cbits) for bit in bits] if left else [self.output_map_right[bit]._node_id for bits in (qargs, all_cbits) for bit in bits]
+        ref_nodes = [self._multi_graph.nodes()[idx] for idx in ref_nodes_idx] # these are DAGOpNodes
+
+        new_node_parents = set()
+
+        # alter parents
+        for child in ref_nodes:
+            print(child.__repr__())
+            new_node_parents.add(child.parents[0]) # each ref_node should only have one parent
+            # the output node's new parent is the new node. This is because each output node identifies with one qubit/wire.
+            child.parents = [node]
+    
+        node.parents = list(new_node_parents)
+
         self._multi_graph.insert_node_on_in_edges_multiple(
             node._node_id,
-            ref_nodes,
+            ref_nodes_idx,
         )
         return node
     

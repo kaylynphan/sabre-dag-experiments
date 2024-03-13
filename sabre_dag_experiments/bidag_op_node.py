@@ -170,11 +170,12 @@ _SEMANTIC_EQ_SYMMETRIC = frozenset({"barrier", "swap", "break_loop", "continue_l
 class DAGNode:
     """Parent class for DAGOpNode, DAGInNode, and DAGOutNode."""
 
-    __slots__ = ["_node_id"]
+    __slots__ = ["_node_id", "parents"]
 
     def __init__(self, nid=-1):
         """Create a node"""
         self._node_id = nid
+        self.parents = [] # added by Kaylyn
 
     def __lt__(self, other):
         return self._node_id < other._node_id
@@ -186,6 +187,7 @@ class DAGNode:
         # TODO is this used anywhere other than in DAG drawing?
         # needs to be unique as it is what pydot uses to distinguish nodes
         return str(id(self))
+    
 
     @staticmethod
     def semantic_eq(node1, node2, bit_indices1, bit_indices2):
@@ -250,13 +252,12 @@ class DAGNode:
 class DAGOpNode(DAGNode):
     """Object to represent an Instruction at a node in the DAGCircuit."""
 
-    __slots__ = ["op", "left", "qargs", "cargs", "sort_key"]
+    __slots__ = ["op", "qargs", "cargs", "sort_key"]
 
-    def __init__(self, op, left, qargs: Iterable[Qubit] = (), cargs: Iterable[Clbit] = (), dag=None):
+    def __init__(self, op, qargs: Iterable[Qubit] = (), cargs: Iterable[Clbit] = (), dag=None):
         """Create an Instruction node"""
         super().__init__()
         self.op = op
-        self.left = left # boolean
         self.qargs = tuple(qargs)
         self.cargs = tuple(cargs)
         if dag is not None:
@@ -284,7 +285,7 @@ class DAGOpNode(DAGNode):
 
     def __repr__(self):
         """Returns a representation of the DAGOpNode"""
-        return f"DAGOpNode(op={self.op}, left={self.left}, qargs={self.qargs}, cargs={self.cargs})"
+        return f"DAGOpNode(op={self.op}, qargs={self.qargs}, cargs={self.cargs})"
 
 
 class DAGInNode(DAGNode):
@@ -308,7 +309,7 @@ class DAGInNode(DAGNode):
 class DAGOutNode(DAGNode):
     """Object to represent an outgoing wire node in the DAGCircuit."""
 
-    __slots__ = ["wire", "sort_key"]
+    __slots__ = ["wire", "sort_key", "parents"]
 
     def __init__(self, wire):
         """Create an outgoing node"""
