@@ -38,44 +38,31 @@ def construct_qc_with_barriers(list_gate, count_physical_qubit): # list_gate is 
         qc.barrier()
     return qc
 
-def apply_layout_and_generate_sabre_swaps(bidag, circuit_info, coupling, count_physical_qubit, initial_mapping, left, index, layout_trials):
+def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical_qubit, initial_mapping, left, index, layout_trials):
     if left:
       qc = construct_qc(reversed(circuit_info[:index]), count_physical_qubit)
     else:
       qc = construct_qc(circuit_info[index:], count_physical_qubit)
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
 
-    sbs = BiDAGSabreSwap(bidag=bidag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=None, trials=None)
-    swaps, final_qc = sbs.run()
-    print("final sabre result")
-    print(swaps)
-    print(f"{len(swaps)} swaps")
+    # sbs = BiDAGSabreSwap(bidag=bidag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=None, trials=None)
+    # swaps, final_mapping = sbs.run()
+    # print("final sabre result")
+    # print(swaps)
+    # print(f"{len(swaps)} swaps")
 
-    # sl = SetLayout(initial_mapping)
-    # apl = ApplyLayout()
-    # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping)
-    # pm1 = PassManager([sl, apl, sbs])
-    # sabre_cir = pm1.run(qc)
-
-    # print(sabre_cir._layout)
-
-    # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping) # optionally make trials a parameter
-    # pm2 = PassManager(sbs)
-    # sabre_cir = pm2.run(sabre_cir)
-
-    # print(f"final ._layout {'left' if left else 'right'}")
-    # print(sabre_cir._layout)
-
-
-    # print(f'final layout {"left" if left else "right"}')
-    # print(sbs.property_set['final_layout'])
+    sl = SetLayout(initial_mapping)
+    apl = ApplyLayout()
+    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping)
+    pm1 = PassManager([sl, apl, sbs])
+    sabre_cir = pm1.run(qc)
     
-    if left:
-      print(f"Drawing left circuit at bidag_index_{index}_left_circuit.png")
-      sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_left_circuit.png", output='mpl', style='color', with_layout=True)
-    else:
-      print(f"Drawing right circuit at bidag_index_{index}_right_circuit.png")
-      sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_right_circuit.png", output='mpl', style='color', with_layout=True)
+    # if left:
+    #   print(f"Drawing left circuit at bidag_index_{index}_left_circuit.png")
+    #   sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_left_circuit.png", output='mpl', style='color', with_layout=True)
+    # else:
+    #   print(f"Drawing right circuit at bidag_index_{index}_right_circuit.png")
+    #   sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_right_circuit.png", output='mpl', style='color', with_layout=True)
     
     count_swap = 0
     for gate in sabre_cir.data:
@@ -90,7 +77,7 @@ def run_sabre(circuit_info, coupling, count_physical_qubit, layout_trials):
     qc = construct_qc(list_gate, count_physical_qubit)
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
     
-    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
+    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials)
     pass_manager1 = PassManager(sbl)
     sabre_cir = pass_manager1.run(qc)
     # sabre_cir.draw(scale=0.7, filename="sabrecir.png", output='mpl', style='color')

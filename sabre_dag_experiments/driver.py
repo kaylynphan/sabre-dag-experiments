@@ -2,9 +2,10 @@ from sabre_dag_experiments.device import qcdevice
 from sabre_dag_experiments.input import input_qasm
 from qiskit.converters import *
 from sabre_dag_experiments.qc_helpers import run_sabre, apply_layout_and_generate_sabre_swaps, construct_qc
-from sabre_dag_experiments.dag_helpers import test_dagcircuit_class, run_sabre_on_dag, construct_bidirectional_dagcircuit
+from sabre_dag_experiments.dag_helpers import test_bidagcircuit_class, run_sabre_on_dag, construct_bidirectional_dagcircuit, construct_reverse_bidirectional_dagcircuit
 from qiskit.transpiler import PassManager, CouplingMap
 from qiskit.transpiler.passes import SabreLayout
+from sabre_dag_experiments.bidag_sabre_swap import BiDAGSabreSwap
 
 class Driver:
     def __init__(self, layout_trials):
@@ -131,7 +132,7 @@ class Driver:
         
     def get_swap_upper_bound(self, heuristic = "sabre"):
         if heuristic == "sabre":
-            swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit)
+            swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
             # print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
         else:
             raise TypeError("Only support sabre.")
@@ -148,65 +149,32 @@ class Driver:
         img = device.draw()
         img.save("coupling_map.png")
 
-
-        # print(f"Compiling original circuit with sabre (via SabreLayout pass/PassManager) with layout_trials={self.layout_trials}...")
-        sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=self.layout_trials)
-        pm = PassManager(sbl)
-        sabre_cir = pm.run(qc)
-        # print("Drawing circuit in orig_sabre_compiled_circuit.png")
-        sabre_cir.draw(scale=0.7, filename = "orig_sabre_circuit.png", output='mpl', style='color', with_layout=True)
-        
-        swap_count, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
-        # print(f"Original Sabre achieves swap count: {swap_count} and depth: {depth}")
-
-        # print(f"Running Sabre on BiDAG partitioned at index {index}...")
-
-
-        ####
-
         bidirectional_dag = construct_bidirectional_dagcircuit(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, index)
-        # print("Visualizing Reverse Circuit as Sabre will use for forward and backward pass...")
-        for_cir = dag_to_circuit(bidirectional_dag)
-        for_cir.draw(scale=0.7, filename = "cir_used_for_sabre_forward_pass.png", output='mpl', style='color', with_layout=True)
-        rev_cir = for_cir.reverse_ops()
-        rev_cir.draw(scale=0.7, filename = "cir_used_for_sabre_backward_pass.png", output='mpl', style='color', with_layout=True)
+        reverse_bidirectional_dag = construct_reverse_bidirectional_dagcircuit(bidirectional_dag, self.count_physical_qubit)
 
-        initial_layout, out_cir, swap_num, depth = run_sabre_on_dag(bidirectional_dag, self.list_qubit_edge, self.layout_trials)
+        initial_mapping =  {
+            k: k for k in range(self.count_physical_qubit)
+        }
 
-        # print(f"Drawing output of SabreLayout on BiDAG")
-        out_cir.draw(scale=0.7, filename = "bidag_sabre_cir.png", output='mpl', style='color', with_layout=True)
+        for _ in range(self.layout_trials):
+            for dir in ["forward", "reverse"]:
+                if dir == 'forward':
+                    dag = bidirectional_dag
+                else:
+                    dag = reverse_bidirectional_dag
+                sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=None, trials=None)
+                swaps, final_mapping = sbs.run()
 
-        ###
-
-        # dag, initial_layout = test_dagcircuit_class(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, index, self.circuit_name)
-
-        # print("Visualizing Reverse Circuit as Sabre will use for forward and backward pass...")
-        # for_cir = dag_to_circuit(dag)
-        # for_cir.draw(scale=0.7, filename = "cir_used_for_sabre_forward_pass.png", output='mpl', style='color', with_layout=True)
-        # rev_cir = for_cir.reverse_ops()
-        # rev_cir.draw(scale=0.7, filename = "cir_used_for_sabre_backward_pass.png", output='mpl', style='color', with_layout=True)
+                initial_mapping = final_mapping
         
-        # initial_layout, swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
-        #
-
-        # print(f"Swap Count when running on BiDAG: {swap_num}")
-
-        # print(f"Verifying mapping at index {index}...")
-
-        # print(f"Initial layout at index {index}")
-        # print(initial_layout)
-  
-        # left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, index, self.layout_trials)
-        # print(f"Left Swap count: {left_swap_count}")
-        # print(f"Left Depth: {left_depth}")
-
-        # right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, False, index, self.layout_trials)
-        # print(f"Right Swap count: {right_swap_count}")
-        # print(f"Right Depth: {right_depth}")
-
-        apply_layout_and_generate_sabre_swaps(bidirectional_dag, self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, index, self.layout_trials)
-
+        final_swap_count = swaps
     
+        print(f"SabreLayout with {self.layout_trials} layout trials found this initial mapping and swap count:")
+        print(initial_mapping)
+        print(final_swap_count)
+        
+        apply_layout_and_generate_sabre_swaps(bidirectional_dag, self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, True, index, self.layout_trials)
+
     def build_bidirectional_initial_mappings_for_all_indices(self):
         swap_counts = []
         depths = []
@@ -238,107 +206,27 @@ class Driver:
         # print(f"Sabre achieves swap count: {swap_count} and depth: {depth}")
 
         # print("Testing BiDAG at several indices")
+
+
+        results = []
+
         for i in range(len(self.list_gate_qubits)):
-            dag, initial_layout = test_dagcircuit_class(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)    
+            print(f"Index: {i}")
+            dag = test_bidagcircuit_class(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)
+            initial_layout, sabre_cir, swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
+            print(f"Swap count on sabre-compiled bidag: {swap_num}")
+            print(f"Depth: {depth}")
 
-            swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
-            if swap_num < min_swap_count:
-                min_indices = [i]
-                min_swap_count = swap_num
-            elif swap_num == min_swap_count:
-                min_indices.append(i)
-
-            if swap_num > max_swap_count:
-                max_indices = [i]
-                max_swap_count = swap_num
-            elif swap_num == max_swap_count:
-                max_indices.append(i)
-            
-            print(f"Index for BiDAG: {i}, Swap Count: {swap_num}")
-            swap_counts.append(swap_num)
-            depths.append(depth)
-            initial_layouts.append(initial_layout)
-
-            # print(f'index: {i}, swap_count: {swap_num}, depth: {depth}')
-            # print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
-        print(f'Zero-index partition result: swap_count: {swap_counts[0]}, depth: {depths[0]}')
-        print(f'Lowest swap_count: {min_swap_count} at indices: [{str(min_indices)}]')
-        print(f'Highest swap_count: {max_swap_count} at indices: [{str(max_indices)}]')
-
-        # Each index constructs a new bidirectional dagcircuit. Each dagcircuit gets run through SABRE and returns both an initial mapping and a resulting swap count from running SABRE on the dag
-        # for those indices that seem to create a minimum swap count, verify whether the mapping can be applied to the original circuit to also have an optimal result
-
-        print("Verifying mappings that generate lowest swap count...")
-        for min_index in min_indices + [0]:
-            initial_layout = initial_layouts[min_index]
-            print(f"Initial layout at index {min_index}")
-            print(initial_layout)
-
-            left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, min_index, self.layout_trials)
+            left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, i, self.layout_trials)
             print(f"Left Swap count: {left_swap_count}")
             print(f"Left Depth: {left_depth}")
 
-            right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, False, min_index, self.layout_trials)
+            right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, False, i, self.layout_trials)
             print(f"Right Swap count: {right_swap_count}")
             print(f"Right Depth: {right_depth}")
 
-    # QUEUE METHOD incorrectly introduces dependencies between gates from different partition
-    # def run_sabre_with_dag_formation_at_all_indices(self):
-    #     print("Running original sabre heuristic with layout_trials={}".format(self.layout_trials))
-    #     swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
-    #     print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
-        
-    #     print("Indices")
-    #     indices = [i for i in range(len(self.list_gate_qubits))]
-    #     for i in range(len(self.list_gate_qubits)):
-    #         print(str(i))
-            
-    #     print("Swap Counts")
-    #     swap_counts = []
-    #     depths = []
-    #     min_indices = []
-    #     max_indices = []
-    #     min_swap_count = float("inf")
-    #     max_swap_count = 0
-    #     for i in range(len(self.list_gate_qubits)):
-    #         # print("Constructing DAGCircuit at index {}".format(i))
-    #         dag = construct_dagcircuit_queue_method(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)        
-    #         swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
-    #         if swap_num < min_swap_count:
-    #             min_indices = [i]
-    #             min_swap_count = swap_num
-    #         elif swap_num == min_swap_count:
-    #             min_indices.append(i)
+            print(f"Total swaps: {left_swap_count + right_swap_count}")
+            print(f"Total depth: {left_depth + right_depth}")
+            results.append({'index': i, 'swap_count': left_swap_count + right_swap_count, 'depth': left_depth + right_depth})
 
-    #         if swap_num > max_swap_count:
-    #             max_indices = [i]
-    #             max_swap_count = swap_num
-    #         elif swap_num == max_swap_count:
-    #             max_indices.append(i)
-            
-    #         print(str(swap_num))
-    #         swap_counts.append(swap_num)
-    #         depths.append(depth)
-    #         # print(f'index: {i}, swap_count: {swap_num}, depth: {depth}')
-    #         # print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
-    #     print(f'Original sabre result: swap_count: {swap_counts[0]}, depth: {depths[0]}')
-    #     print(f'Lowest swap_count: {min_swap_count} at indices: [{str(min_indices)}]')
-    #     print(f'Highest swap_count: {max_swap_count} at indices: [{str(max_indices)}]')
-
-    # def output_csv(self, indices, swap_counts, depths):
-    #     data = list(zip(indices, swap_counts, depths))
-    #     csv_file_path = 'csv_outputs/' + self.circuit_name + '_' + self.device_name
-
-    #     # Writing to CSV file
-    #     with open(csv_file_path, mode='w', newline='') as file:
-    #         writer = csv.writer(file)
-
-    #         # Write the header with additional columns
-    #         header = ["index", "swap_count", "depth", "min_swap_count", "min_indices"]
-    #         writer.writerow(header)
-
-    #         # Write the data
-    #         writer.writerows(data)
-
-    #     print(f"CSV file '{csv_file_path}' has been created.")
-
+        return results

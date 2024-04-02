@@ -87,15 +87,15 @@ class BiDAGSabreSwap:
           print(f'successors: {successors}')
           for s in successors:
             print("parents")
-            print(s.parents)
+            # print(s.parents)
             if self.has_resolved_dependencies(s):
               print("has resolved dependencies")
               F.append(s)
       else:
         F_targets = self.get_F_targets(F)
         swap_candidate_list = self.obtain_swaps(F_targets)
-        print("swap candidates")
-        print(swap_candidate_list)
+        # print("swap candidates")
+        # print(swap_candidate_list)
         min_swap = [] # initialize
         best_score = float("inf") # initialize
         best_mapping = None
@@ -108,18 +108,18 @@ class BiDAGSabreSwap:
           elif score == best_score:
             min_swap.append(swap)
             best_mapping.append(new_mapping)
-        print("old mapping")
-        print(self.mutable_mapping)
-        print("new mapping")
+        # print("old mapping")
+        # print(self.mutable_mapping)
+        # print("new mapping")
         chosen_idx = random.randint(0, len(min_swap) - 1)
         chosen_mapping = best_mapping[chosen_idx]
         chosen_swap = min_swap[chosen_idx]
-        print(chosen_mapping)
+        # print(chosen_mapping)
         self.mutable_mapping = chosen_mapping
         inserted_swaps.append(chosen_swap)
         final_qc.swap(chosen_swap[0], chosen_swap[1])
 
-    return inserted_swaps, final_qc
+    return inserted_swaps, self.mutable_mapping
 
   def create_neighbor_table(self, graph):
     neighbor_table = np.zeros((self.num_qubits, self.num_qubits))

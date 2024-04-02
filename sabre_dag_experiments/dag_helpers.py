@@ -87,33 +87,20 @@ def draw_dagcircuit_info(circuit_info, coupling, count_physical_qubit, index, ci
     right_img.save(f'right_dagcircuit_index_{index}.png')
 
 
-def test_dagcircuit_class(circuit_info, coupling, count_physical_qubit, index, circuit_name): 
-    # left_circuit_info_reversed = reversed(circuit_info[:index])
-    # right_circuit_info = circuit_info[index:]
-
-    # left_qc = construct_qc(left_circuit_info_reversed, count_physical_qubit)
-    # right_qc = construct_qc(right_circuit_info, count_physical_qubit)
-    
-    # left_dag = circuit_to_dag(left_qc)
-    # right_dag = circuit_to_dag(right_qc)
-
-    # left_img = left_dag.draw(scale=0.7, style='color')
-    # left_img.save('left_dagcircuit.png')
-    # right_img = right_dag.draw(scale=0.7, style='color')
-    # right_img.save('right_dagcircuit.png')
+def test_bidagcircuit_class(circuit_info, coupling, count_physical_qubit, index, circuit_name): 
 
     bidirectional_dag = construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qubit, index)
 
     # Attempt to run sabre on this bidirectional DAG
-    device = CouplingMap(couplinglist = coupling, description="sabre_test")
-    # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
-    sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
+    # device = CouplingMap(couplinglist = coupling, description="sabre_test")
+    # # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
+    # sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
     
-    out_dag = sbl.run(bidirectional_dag)
-    initial_layout = sbl.property_set['layout']
+    # out_dag = sbl.run(bidirectional_dag)
+    # initial_layout = sbl.property_set['layout']
 
     # print(initial_layout)
-    return out_dag, initial_layout
+    return bidirectional_dag
     # sabre_cir = dag_to_circuit(out_dag)
 
 def construct_qc(list_gate, count_physical_qubit): # list_gate is a tuple of lists
@@ -126,6 +113,21 @@ def construct_qc(list_gate, count_physical_qubit): # list_gate is a tuple of lis
         else:
             raise TypeError("Currently only support one and two-qubit gate.")
     return qc
+
+def construct_reverse_bidirectional_dagcircuit(dag, count_physical_qubit):
+    graph = BidirectionalDAGCircuit()
+    qubit_array = [Qubit(register=QuantumRegister(size=count_physical_qubit, name='q'), index=i) for i in range(count_physical_qubit)]
+    graph.add_qubits(qubit_array)
+
+    for gate in dag.nodes.iter().reverse():
+        _add_gate_to_dagcircuit(gate, qubit_array, graph, gate.left)
+    
+    # For Visualization
+    bidag = graph.draw(scale=0.7, style='color')
+    bidag.save('reverse_bidirectional_dagcircuit.png')
+    
+    return graph
+    
 
 def construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qubit, index):
     left_circuit_info = reversed(circuit_info[:index])
@@ -142,13 +144,7 @@ def construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qu
 
     # For Visualization
     bidag = graph.draw(scale=0.7, style='color')
-    bidag.save('bidirectional_dagcircuit_before_merging.png')
-
-    graph.merge_output_nodes()
-
-    # For Visualization
-    bidag = graph.draw(scale=0.7, style='color')
-    bidag.save('bidirectional_dagcircuit_after_merging.png')
+    bidag.save('bidirectional_dagcircuit.png')
     
     return graph
 
@@ -159,12 +155,6 @@ def run_sabre_on_dag(dagcircuit, coupling, layout_trials):
     
     out_dag = sbl.run(dagcircuit)
     initial_layout = sbl.property_set['layout']
-    # print('property_set[\'layout\']')
-    # print(sbl.property_set['layout'])
-    # print('property_set[\'initial_layout\']')
-    # print(sbl.property_set['initial_layout'])
-    # print('property_set[\'final_layout\']')
-    # print(sbl.property_set['final_layout'])
     
     sabre_cir = dag_to_circuit(out_dag)
     
