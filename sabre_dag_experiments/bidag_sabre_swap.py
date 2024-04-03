@@ -36,16 +36,23 @@ class BiDAGSabreSwap:
 
     ############## SET INITIAL LAYOUT
 
-    canonical_register = QuantumRegister(self.coupling_map.size(), 'q')
-    self._qubit_indices = {bit: idx for idx, bit in enumerate(canonical_register)}
-    self.initial_mapping = {
-      self._qubit_indices[k]: v for k, v in initial_mapping.get_virtual_bits().items()
-    }
-    # self.reverse_mapping = {
-    #   v: self._qubit_indices[k] for k, v in initial_mapping.get_virtual_bits().items()
+
+    # canonical_register = QuantumRegister(self.coupling_map.size(), 'q')
+    # self._qubit_indices = {idx: bit for idx, bit in enumerate(canonical_register)}
+
+    # print(initial_mapping)
+
+    # print(self._qubit_indices)
+    # self.initial_mapping = {
+    #   v: self._qubit_indices[k] for k, v in initial_mapping.items()
     # }
-    print("initial mapping")
-    print(self.initial_mapping)
+    # # self.reverse_mapping = {
+    # #   v: self._qubit_indices[k] for k, v in initial_mapping.get_virtual_bits().items()
+    # # }
+    # print("initial mapping")
+    # print(self.initial_mapping)
+
+    self.initial_mapping = initial_mapping
     # initial_layout = NLayout(layout_mapping, len(bidag.qubits), self.coupling_map.size())
 
     # SKIP DAG GENERATION. ALREADY GIVEN WITH BIDAG
@@ -57,6 +64,9 @@ class BiDAGSabreSwap:
     # CONSTRUCT FRONT LAYER AND OUTPUT VARIABLES
     F = self.initialize_front_layer()
     self.mutable_mapping = self.initial_mapping.copy()
+
+    print("mutable_mapping")
+    print(self.mutable_mapping)
     final_mapping = None
     inserted_swaps = []
     self.executed_gates_set = set()
@@ -150,7 +160,7 @@ class BiDAGSabreSwap:
       q_i, q_j = gate.qargs[0].index, gate.qargs[1].index
       # print(q_i, q_j)
       Q_m, Q_n = self.mutable_mapping[q_i], self.mutable_mapping[q_j]
-      # print(Q_m, Q_n)
+      print(Q_m, Q_n)
       return self.neighbor_table[Q_m, Q_n] == 1 or self.neighbor_table[Q_n, Q_m] == 1
 
   def get_successors(self, gate):

@@ -1,8 +1,7 @@
 from qiskit.transpiler import CouplingMap
 from qiskit import QuantumCircuit
-from qiskit.transpiler import PassManager
-from sabre_dag_experiments.sabre_swap import SabreSwap
-from qiskit.transpiler.passes import SabreLayout, ApplyLayout, SetLayout
+from qiskit.transpiler import PassManager, Layout
+from qiskit.transpiler.passes import SabreLayout, ApplyLayout, SetLayout, SabreSwap
 from qiskit.converters import *
 
 from sabre_dag_experiments.bidag_sabre_swap import BiDAGSabreSwap
@@ -51,11 +50,13 @@ def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical
     # print(swaps)
     # print(f"{len(swaps)} swaps")
 
-    sl = SetLayout(initial_mapping)
+    init_layout = Layout()
+    sl = SetLayout(init_layout.from_dict(initial_mapping))
     apl = ApplyLayout()
-    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1, initial_mapping=initial_mapping)
-    pm1 = PassManager([sl, apl, sbs])
+    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
+    pm1 = PassManager([sl, sbs])
     sabre_cir = pm1.run(qc)
+
     
     # if left:
     #   print(f"Drawing left circuit at bidag_index_{index}_left_circuit.png")

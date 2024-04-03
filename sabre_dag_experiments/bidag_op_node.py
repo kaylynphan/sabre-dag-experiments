@@ -170,7 +170,7 @@ _SEMANTIC_EQ_SYMMETRIC = frozenset({"barrier", "swap", "break_loop", "continue_l
 class DAGNode:
     """Parent class for DAGOpNode, DAGInNode, and DAGOutNode."""
 
-    __slots__ = ["_node_id", "parents"]
+    __slots__ = ["_node_id", "left", "parents"]
 
     def __init__(self, nid=-1):
         """Create a node"""
@@ -254,10 +254,11 @@ class DAGOpNode(DAGNode):
 
     __slots__ = ["op", "qargs", "cargs", "sort_key"]
 
-    def __init__(self, op, qargs: Iterable[Qubit] = (), cargs: Iterable[Clbit] = (), dag=None):
+    def __init__(self, op, left, qargs: Iterable[Qubit] = (), cargs: Iterable[Clbit] = (), dag=None):
         """Create an Instruction node"""
         super().__init__()
         self.op = op
+        self.left = left
         self.qargs = tuple(qargs)
         self.cargs = tuple(cargs)
         if dag is not None:
@@ -311,9 +312,10 @@ class DAGOutNode(DAGNode):
 
     __slots__ = ["wire", "sort_key", "parents"]
 
-    def __init__(self, wire):
+    def __init__(self, wire, left):
         """Create an outgoing node"""
         super().__init__()
+        self.left = left
         self.wire = wire
         # TODO sort_key which is used in dagcircuit.topological_nodes
         # only works as str([]) for DAGOutNodes. Need to figure out why.

@@ -80,6 +80,8 @@ class BidirectionalDAGCircuit:
         self._calibrations = defaultdict(dict)
         self.unit = "dt"
 
+        self.applied_nodes = []
+
     def num_qubits(self):
         """Return the total number of qubits used by the circuit.
         num_qubits() replaces former use of width().
@@ -212,8 +214,8 @@ class BidirectionalDAGCircuit:
             self._wires.add(wire)
 
             inp_node = DAGInNode(wire=wire)
-            outp_node_left = DAGOutNode(wire=wire)
-            outp_node_right = DAGOutNode(wire=wire)
+            outp_node_left = DAGOutNode(wire=wire, left=True)
+            outp_node_right = DAGOutNode(wire=wire, left=False)
             input_map_id, output_map_left_id, output_map_right_id = self._multi_graph.add_nodes_from([inp_node, outp_node_left, outp_node_right])
             inp_node._node_id = input_map_id
             outp_node_left._node_id = output_map_left_id
@@ -299,7 +301,7 @@ class BidirectionalDAGCircuit:
                 self._check_bits(qargs, self.output_map_right)
             # self._check_bits(all_cbits, self.output_map)
 
-        node = DAGOpNode(op=op, qargs=qargs, cargs=cargs, dag=self)
+        node = DAGOpNode(op=op, left=left, qargs=qargs, cargs=cargs, dag=self)
         node._node_id = self._multi_graph.add_node(node)
         self._increment_op(op)
 
@@ -314,7 +316,7 @@ class BidirectionalDAGCircuit:
 
         # alter parents
         for child in ref_nodes:
-            print(child.__repr__())
+            # print(child.__repr__())
             new_node_parents.add(child.parents[0]) # each ref_node should only have one parent
             # the output node's new parent is the new node. This is because each output node identifies with one qubit/wire.
             child.parents = [node]
@@ -325,6 +327,8 @@ class BidirectionalDAGCircuit:
             node._node_id,
             ref_nodes_idx,
         )
+
+        self.applied_nodes.append(node)
         return node
     
     def _check_bits(self, args, amap):
