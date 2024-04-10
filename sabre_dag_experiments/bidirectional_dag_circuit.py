@@ -80,7 +80,8 @@ class BidirectionalDAGCircuit:
         self._calibrations = defaultdict(dict)
         self.unit = "dt"
 
-        self.applied_nodes = []
+        self.applied_nodes_left = []
+        self.applied_nodes_right = []
 
     def num_qubits(self):
         """Return the total number of qubits used by the circuit.
@@ -328,7 +329,10 @@ class BidirectionalDAGCircuit:
             ref_nodes_idx,
         )
 
-        self.applied_nodes.append(node)
+        if left:
+            self.applied_nodes_left.append(node)
+        else:
+            self.applied_nodes_right.append(node)
         return node
     
     def _check_bits(self, args, amap):
@@ -376,7 +380,8 @@ class BidirectionalDAGCircuit:
             Ipython.display.Image: if in Jupyter notebook and not saving to file,
             otherwise None.
         """
-        from qiskit.visualization.dag_visualization import dag_drawer
+        # from qiskit.visualization.dag_visualization import dag_drawer
+        from sabre_dag_experiments.dag_drawer import dag_drawer
 
         return dag_drawer(dag=self, scale=scale, filename=filename, style=style)
 

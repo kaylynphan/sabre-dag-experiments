@@ -1,7 +1,9 @@
 from qiskit.transpiler import CouplingMap
 from qiskit import QuantumCircuit
 from qiskit.transpiler import PassManager, Layout
-from qiskit.transpiler.passes import SabreLayout, ApplyLayout, SetLayout, SabreSwap
+from qiskit.transpiler.passes import ApplyLayout, SetLayout
+from sabre_dag_experiments.sabre_swap import SabreSwap
+from sabre_dag_experiments.sabre_layout import SabreLayout
 from qiskit.converters import *
 
 from sabre_dag_experiments.bidag_sabre_swap import BiDAGSabreSwap
@@ -37,7 +39,7 @@ def construct_qc_with_barriers(list_gate, count_physical_qubit): # list_gate is 
         qc.barrier()
     return qc
 
-def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical_qubit, initial_mapping, left, index, layout_trials):
+def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical_qubit, initial_mapping, left, index, layout_trials, visualize=False):
     if left:
       qc = construct_qc(reversed(circuit_info[:index]), count_physical_qubit)
     else:
@@ -51,19 +53,21 @@ def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical
     # print(f"{len(swaps)} swaps")
 
     init_layout = Layout()
-    sl = SetLayout(init_layout.from_dict(initial_mapping))
+    init_layout.from_dict(initial_mapping)
+    sl = SetLayout(init_layout)
     apl = ApplyLayout()
-    sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
-    pm1 = PassManager([sl, sbs])
+    sbs = SabreSwap(coupling_map = device, heuristic = "basic", seed = 0, trials=layout_trials)
+    pm1 = PassManager([sl, apl, sbs])
+    # pm1 = PassManager(sbs)
     sabre_cir = pm1.run(qc)
 
-    
-    # if left:
-    #   print(f"Drawing left circuit at bidag_index_{index}_left_circuit.png")
-    #   sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_left_circuit.png", output='mpl', style='color', with_layout=True)
-    # else:
-    #   print(f"Drawing right circuit at bidag_index_{index}_right_circuit.png")
-    #   sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_right_circuit.png", output='mpl', style='color', with_layout=True)
+    if visualize:
+        if left:
+            print(f"Drawing left circuit at bidag_index_{index}_left_circuit.png")
+            sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_left_circuit.png", output='mpl', style='color', with_layout=True)
+        else:
+            print(f"Drawing right circuit at bidag_index_{index}_right_circuit.png")
+            sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_right_circuit.png", output='mpl', style='color', with_layout=True)
     
     count_swap = 0
     for gate in sabre_cir.data:
@@ -72,7 +76,7 @@ def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical
 
     return count_swap, sabre_cir.depth()
     
-def run_sabre(circuit_info, coupling, count_physical_qubit, layout_trials):
+def run_sabre(circuit_info, coupling, count_physical_qubit, heuristic, layout_trials):
     # read qasm
     list_gate = circuit_info
     qc = construct_qc(list_gate, count_physical_qubit)
@@ -81,7 +85,7 @@ def run_sabre(circuit_info, coupling, count_physical_qubit, layout_trials):
     sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials)
     pass_manager1 = PassManager(sbl)
     sabre_cir = pass_manager1.run(qc)
-    # sabre_cir.draw(scale=0.7, filename="sabrecir.png", output='mpl', style='color')
+    sabre_cir.draw(scale=0.7, filename="sabrecir.png", output='mpl', style='color')
     
     count_swap = 0
     for gate in sabre_cir.data:
@@ -237,7 +241,7 @@ def run_sabre(circuit_info, coupling, count_physical_qubit, layout_trials):
 #     sabre_cir_left = sabre_cir_left.reverse_ops()
 #     joined_cir = sabre_cir_left.compose(sabre_cir_right)
 #     # run SabreSwap on the joined circuit
-#     sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
+#     sbs = SabreSwap(coupling_map = device, heuristic = "basic", seed = 0, trials=1)
 #     pass_manager3 = PassManager(sbs)
 #     joined_cir = pass_manager3.run(joined_cir)
 #     joined_cir.draw(scale=0.7, filename="sabre_right_then_left_cir.png", output='mpl', style='color', with_layout=True)

@@ -2,7 +2,7 @@ from sabre_dag_experiments.device import qcdevice
 from sabre_dag_experiments.input import input_qasm
 from qiskit.converters import *
 from sabre_dag_experiments.qc_helpers import run_sabre, apply_layout_and_generate_sabre_swaps, construct_qc
-from sabre_dag_experiments.dag_helpers import test_bidagcircuit_class, run_sabre_on_dag, construct_bidirectional_dagcircuit, construct_reverse_bidirectional_dagcircuit
+from sabre_dag_experiments.dag_helpers import run_sabre_on_dag, construct_bidirectional_dagcircuit, construct_reverse_bidirectional_dagcircuit
 from qiskit.transpiler import PassManager, CouplingMap
 from qiskit.transpiler.passes import SabreLayout
 from qiskit.circuit import Qubit, QuantumRegister
@@ -131,12 +131,9 @@ class Driver:
             else:
                 self.list_gate_two.append(l)
         
-    def get_swap_upper_bound(self, heuristic = "sabre"):
-        if heuristic == "sabre":
-            swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
-            # print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
-        else:
-            raise TypeError("Only support sabre.")
+    def get_swap_upper_bound(self, heuristic="basic"):
+        swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, heuristic, self.layout_trials)
+        # print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
         return swap_num, depth
     
     def build_bidirectional_initial_mapping(self, index):
@@ -153,6 +150,13 @@ class Driver:
         bidirectional_dag = construct_bidirectional_dagcircuit(self.list_gate_qubits, self.count_physical_qubit, index)
         reverse_bidirectional_dag = construct_reverse_bidirectional_dagcircuit(bidirectional_dag, self.count_physical_qubit, index)
 
+        # For Visualization
+        bidag = bidirectional_dag.draw(scale=0.7, style='color')
+        bidag.save(f'bidirectional_dagcircuit_index_{index}.png')
+
+        reverse_bidag = reverse_bidirectional_dag.draw(scale=0.7, style='color')
+        reverse_bidag.save(f'reverse_bidirectional_dagcircuit_index_{index}.png')
+
         initial_mapping =  {
             k: k for k in range(self.count_physical_qubit)
         }
@@ -163,18 +167,26 @@ class Driver:
                     dag = bidirectional_dag
                 else:
                     dag = reverse_bidirectional_dag
-                sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=None, trials=None)
+                sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=0, trials=None)
                 swaps, final_mapping = sbs.run()
 
                 initial_mapping = final_mapping
         
-        final_swap_count = swaps
+        final_swap_count = len(swaps)
     
         print(f"SabreLayout with {self.layout_trials} layout trials found this initial mapping and swap count:")
         print(initial_mapping)
         print(final_swap_count)
+
+        # convert initial_mapping from int->int dict to int->Qubit dict
+        initial_mapping = {k: Qubit(register=QuantumRegister(size=self.count_physical_qubit, name='q'), index=v) for k, v in initial_mapping.items()}
         
-        left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(bidirectional_dag, self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, True, index, self.layout_trials)
+        left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, True, index, self.layout_trials, visualize=True)
+        right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, False, index, self.layout_trials,  visualize=True)
+
+        result = ({'index': index, 'layout_swap_count': final_swap_count, 'swap_count': left_swap_count + right_swap_count, 'depth': left_depth + right_depth})
+        return result
+
 
     def build_bidirectional_initial_mappings_for_all_indices(self):
         qc = construct_qc(self.list_gate_qubits, self.count_physical_qubit)
@@ -200,12 +212,12 @@ class Driver:
                         dag = bidirectional_dag
                     else:
                         dag = reverse_bidirectional_dag
-                    sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=None, trials=None)
+                    sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=0, trials=None)
                     swaps, final_mapping = sbs.run()
 
                     initial_mapping = final_mapping
             
-            final_swap_count = swaps
+            final_swap_count = len(swaps)
         
             print(f"SabreLayout with {self.layout_trials} layout trials found this initial mapping and swap count:")
             print(initial_mapping)
@@ -214,81 +226,9 @@ class Driver:
             # convert initial_mapping from int->int dict to int->Qubit dict
             initial_mapping = {k: Qubit(register=QuantumRegister(size=self.count_physical_qubit, name='q'), index=v) for k, v in initial_mapping.items()}
             
-            left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, True, index, self.layout_trials)
-            right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, False, index, self.layout_trials)
+            left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, True, index, self.layout_trials, visualize=False)
+            right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, False, index, self.layout_trials, visualize=False)
 
-            results.append({'index': index, 'swap_count': left_swap_count + right_swap_count, 'depth': left_depth + right_depth})
+            results.append({'index': index, 'layout_swap_count': final_swap_count, 'swap_count': left_swap_count + right_swap_count, 'depth': left_depth + right_depth})
         return results
 
-
-
-
-
-
-
-
-        swap_counts = []
-        depths = []
-        min_indices = []
-        max_indices = []
-        min_swap_count = float("inf")
-        max_swap_count = 0
-        initial_layouts = []
-
-        # print("Drawing original circuit in orig_circuit.png")
-        qc = construct_qc(self.list_gate_qubits, self.count_physical_qubit)
-        qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
-        device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
-
-        # print("Drawing Coupling Map...")
-        device = CouplingMap(couplinglist = self.list_qubit_edge, description="sabre_test")
-        img = device.draw()
-        img.save("coupling_map.png")
-
-
-        sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=self.layout_trials)
-        pm = PassManager(sbl)
-        sabre_cir = pm.run(qc)
-        # print("Drawing circuit in orig_sabre_circuit.png")
-        sabre_cir.draw(scale=0.7, filename = "orig_sabre_circuit.png", output='mpl', style='color', with_layout=True)
-        
-        swap_count, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, self.layout_trials)
-        # print(f"Sabre achieves swap count: {swap_count} and depth: {depth}")
-
-        # print("Testing BiDAG at several indices")
-
-
-        results = []
-
-        for i in range(len(self.list_gate_qubits)):
-            for _ in range(self.layout_trials):
-                for dir in ["forward", "reverse"]:
-                    if dir == 'forward':
-                        dag = bidirectional_dag
-                    else:
-                        dag = reverse_bidirectional_dag
-                    sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=None, trials=None)
-                    swaps, final_mapping = sbs.run()
-
-                    initial_mapping = final_mapping
-            
-            final_swap_count = swaps
-            print(f"Index: {i}")
-            dag = test_bidagcircuit_class(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, i, self.circuit_name)
-            initial_layout, sabre_cir, swap_num, depth = run_sabre_on_dag(dag, self.list_qubit_edge, self.layout_trials)
-            print(f"Swap count on sabre-compiled bidag: {swap_num}")
-            print(f"Depth: {depth}")
-
-            left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, True, i, self.layout_trials)
-            print(f"Left Swap count: {left_swap_count}")
-            print(f"Left Depth: {left_depth}")
-
-            right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_layout, False, i, self.layout_trials)
-            print(f"Right Swap count: {right_swap_count}")
-            print(f"Right Depth: {right_depth}")
-
-            print(f"Total swaps: {left_swap_count + right_swap_count}")
-            print(f"Total depth: {left_depth + right_depth}")
-            results.append({'index': i, 'swap_count': left_swap_count + right_swap_count, 'depth': left_depth + right_depth})
-
-        return results

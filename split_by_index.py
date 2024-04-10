@@ -21,7 +21,7 @@ def run_basic_sabre(circuit_info, device, layout_trials):
     lsqc_solver = Driver(layout_trials)
     lsqc_solver.setprogram(circuit_info)
     lsqc_solver.setdevice(device)
-    return lsqc_solver.get_swap_upper_bound()
+    return lsqc_solver.get_swap_upper_bound(heuristic="basic")
 
 def build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, layout_trials, index):
     lsqc_solver = Driver(layout_trials)
@@ -29,7 +29,7 @@ def build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name,
     lsqc_solver.set_device_name(device_name)
     lsqc_solver.setprogram(circuit_info)
     lsqc_solver.setdevice(device)
-    lsqc_solver.build_bidirectional_initial_mapping(index)
+    return lsqc_solver.build_bidirectional_initial_mapping(index)
 
 if __name__ == "__main__":
     # Initialize parser
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         help="swap duration")
     parser.add_argument("--layout_trials", dest="layout_trials", type=int, default=1,
         help="sabre layout trials")
-    parser.add_argument("--index", dest="index", type=int,
+    parser.add_argument("--index", dest="index", default=-1, type=int,
         help="sabre layout trials")
     # Read arguments from command line
     
@@ -76,20 +76,39 @@ if __name__ == "__main__":
     b_file = b_file[-2]
     b_file = b_file.split('/')
     b_file = b_file[-1]
-    file_name = args.folder+"/"+str(args.device_type)+"_"+b_file+".json"
+
+    if args.index == -1:
+        file_name = args.folder+"/"+str(args.device_type)+"_"+b_file+"_trials_"+str(args.layout_trials)+".json"
+    else:
+        file_name = args.folder+"/"+str(args.device_type)+"_"+b_file+"_trials_"+str(args.layout_trials)+"_index_"+str(args.index)+".json"
 
     # layout_trials = args.layout_trials
 # print(f"layout_trials is {layout_trials}")
 
-    swap_upper_bound, depth = run_basic_sabre(circuit_info, device, args.layout_trials)
+    basic_sabre_swap_count, depth = run_basic_sabre(circuit_info, device, args.layout_trials)
 
-    result = build_bidirectional_initial_mappings_for_all_indices(circuit_info, circuit_name, device_name, device, args.layout_trials)
-    
+    if args.index == -1:
+        result = build_bidirectional_initial_mappings_for_all_indices(circuit_info, circuit_name, device_name, device, args.layout_trials)
+    else:
+        result = build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, args.layout_trials, args.index)
+
+    lowest_swap = highest_swap = result[0]["swap_count"]
+    lowest_idx = highest_idx = 0
+    for i in range(1, len(result)):
+        if result[i]["swap_count"] > highest_swap:
+            highest_swap = result[i]["swap_count"]
+            highest_idx = i
+        if result[i]["swap_count"] < lowest_swap:
+            lowest_swap = result[i]["swap_count"]
+            lowest_idx = i
+
     data["device"] = str(args.device)
     data["circuit"] = circuit_name
     data["layout_trials"] = args.layout_trials
-    data["basic_sabre"] = {'swap_count': swap_upper_bound, 'depth': depth}
+    data["basic_sabre"] = {'swap_count': basic_sabre_swap_count, 'depth': depth}
     data["result"] = result
+    data["lowest_result"] = result[lowest_idx]
+    data["highest_result"] = result[highest_idx]
 
     with open(file_name, 'w') as file_object:
         json.dump(data, file_object, default=int)

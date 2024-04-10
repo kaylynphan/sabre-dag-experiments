@@ -10,8 +10,6 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-# Taken from 0.45
-
 """Layout selection using the SABRE bidirectional search approach from Li et al.
 """
 
@@ -388,7 +386,7 @@ class SabreLayout(TransformationPass):
             sabre_dag,
             neighbor_table,
             dist_matrix,
-            Heuristic.Decay,
+            Heuristic.Basic, # MANUALLY SET HEURISTIC
             self.max_iterations,
             self.swap_trials,
             self.layout_trials,

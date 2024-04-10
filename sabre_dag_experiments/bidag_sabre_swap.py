@@ -73,42 +73,52 @@ class BiDAGSabreSwap:
 
     final_qc = QuantumCircuit(self.num_qubits)
 
+    def extract_gate_qargs(node_list):
+      gates = []
+      for node in node_list:
+        if isinstance(node, DAGOpNode):
+          qubits = node.qargs
+          gate_idxs = tuple([q.index for q in qubits])
+          gates.append(gate_idxs)
+
+      return gates
+
     # for _ in range(10):
     while len(F) > 0: # while F is not empty:
-      print("F:")
-      print(F)
+      print(f"F: {extract_gate_qargs(F)}")
       execute_gate_list = []
       for gate in F:
         if self.can_execute_gate(gate):
-          print('can execute')
+          # print('can execute')
           execute_gate_list.append(gate)
           if len(gate.qargs) == 1:
             final_qc.h(gate.qargs[0].index)
           else:
             final_qc.cx(gate.qargs[0].index, gate.qargs[1].index)
+      print(f"execute_gate_list: {extract_gate_qargs(execute_gate_list)}")
       if len(execute_gate_list) > 0:
         for gate in execute_gate_list:
           F.remove(gate)
-          if gate in self.executed_gates_set:
-            print("looks like gate uniqueness is not IDed")
+          # if gate in self.executed_gates_set:
+          #   print("looks like gate uniqueness is not IDed")
           self.executed_gates_set.add(gate)
-          print(f'removing gate {gate.__repr__()}')
+          print(f'removing gate {extract_gate_qargs([gate])}')
           successors = self.get_successors(gate)
-          print(f'successors: {successors}')
+          print(f'successors: {extract_gate_qargs(successors)}')
           for s in successors:
-            print("parents")
-            # print(s.parents)
+            print(f"parents of successor {extract_gate_qargs([s])}: {extract_gate_qargs(s.parents)}")
             if self.has_resolved_dependencies(s):
-              print("has resolved dependencies")
+              print(f"successor {extract_gate_qargs([s])} has resolved dependencies")
               F.append(s)
       else:
         F_targets = self.get_F_targets(F)
         swap_candidate_list = self.obtain_swaps(F_targets)
-        # print("swap candidates")
-        # print(swap_candidate_list)
+        print("swap candidates")
+        print(swap_candidate_list)
         min_swap = [] # initialize
         best_score = float("inf") # initialize
         best_mapping = None
+        
         for swap in swap_candidate_list:
           score, new_mapping = self.score_temp_mapping(swap, self.mutable_mapping, F)
           if score < best_score:
@@ -120,11 +130,11 @@ class BiDAGSabreSwap:
             best_mapping.append(new_mapping)
         # print("old mapping")
         # print(self.mutable_mapping)
-        # print("new mapping")
         chosen_idx = random.randint(0, len(min_swap) - 1)
         chosen_mapping = best_mapping[chosen_idx]
         chosen_swap = min_swap[chosen_idx]
-        # print(chosen_mapping)
+        print("new mapping")
+        print(chosen_mapping)
         self.mutable_mapping = chosen_mapping
         inserted_swaps.append(chosen_swap)
         final_qc.swap(chosen_swap[0], chosen_swap[1])
@@ -160,7 +170,7 @@ class BiDAGSabreSwap:
       q_i, q_j = gate.qargs[0].index, gate.qargs[1].index
       # print(q_i, q_j)
       Q_m, Q_n = self.mutable_mapping[q_i], self.mutable_mapping[q_j]
-      print(Q_m, Q_n)
+      # print(Q_m, Q_n)
       return self.neighbor_table[Q_m, Q_n] == 1 or self.neighbor_table[Q_n, Q_m] == 1
 
   def get_successors(self, gate):

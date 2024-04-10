@@ -52,15 +52,6 @@ def circuit_to_dag(circuit, copy_operations=True, *, qubit_order=None, clbit_ord
     dagcircuit.unit = circuit.unit
     return dagcircuit
 
-# def _add_gate_to_dagcircuit(gate, qubit_array, dagcircuit):
-#     if len(gate) == 1:
-#         instruction = CircuitInstruction(operation=Instruction(name='h', num_qubits=1, num_clbits=0, params=[]), qubits=[qubit_array[gate[0]]])
-#         dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits)
-        
-#     elif len(gate) == 2:
-#         instruction = CircuitInstruction(operation=Instruction(name='cx', num_qubits=2, num_clbits=0, params=[]), qubits=(qubit_array[gate[0]], qubit_array[gate[1]]))
-#         dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits)
-
 # Adds a gate to LEFT or Right dagcircuit. Additional parameter 'left'
 def _add_gate_to_dagcircuit(gate, qubit_array, bidirectional_dagcircuit, left):
     if len(gate) == 1:
@@ -70,38 +61,6 @@ def _add_gate_to_dagcircuit(gate, qubit_array, bidirectional_dagcircuit, left):
     elif len(gate) == 2:
         instruction = CircuitInstruction(operation=Instruction(name='cx', num_qubits=2, num_clbits=0, params=[]), qubits=(qubit_array[gate[0]], qubit_array[gate[1]]))
         bidirectional_dagcircuit.apply_operation_back(instruction.operation, instruction.qubits, instruction.clbits, left)
-
-def draw_dagcircuit_info(circuit_info, coupling, count_physical_qubit, index, circuit_name):
-    left_circuit_info_reversed = reversed(circuit_info[:index])
-    right_circuit_info = circuit_info[index:]
-
-    left_qc = construct_qc(left_circuit_info_reversed, count_physical_qubit)
-    right_qc = construct_qc(right_circuit_info, count_physical_qubit)
-    
-    left_dag = circuit_to_dag(left_qc)
-    right_dag = circuit_to_dag(right_qc)
-
-    left_img = left_dag.draw(scale=0.7, style='color')
-    left_img.save(f'left_dagcircuit_index_{index}.png')
-    right_img = right_dag.draw(scale=0.7, style='color')
-    right_img.save(f'right_dagcircuit_index_{index}.png')
-
-
-def test_bidagcircuit_class(circuit_info, coupling, count_physical_qubit, index, circuit_name): 
-
-    bidirectional_dag = construct_bidirectional_dagcircuit(circuit_info, coupling, count_physical_qubit, index)
-
-    # Attempt to run sabre on this bidirectional DAG
-    # device = CouplingMap(couplinglist = coupling, description="sabre_test")
-    # # sbs = SabreSwap(coupling_map = device, heuristic = "lookahead", seed = 0, trials=1)
-    # sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=1)
-    
-    # out_dag = sbl.run(bidirectional_dag)
-    # initial_layout = sbl.property_set['layout']
-
-    # print(initial_layout)
-    return bidirectional_dag
-    # sabre_cir = dag_to_circuit(out_dag)
 
 def construct_qc(list_gate, count_physical_qubit): # list_gate is a tuple of lists
     qc = QuantumCircuit(count_physical_qubit)
@@ -119,12 +78,19 @@ def construct_reverse_bidirectional_dagcircuit(dag, count_physical_qubit, index)
     qubit_array = [Qubit(register=QuantumRegister(size=count_physical_qubit, name='q'), index=i) for i in range(count_physical_qubit)]
     graph.add_qubits(qubit_array)
 
-    print("reverse applied nodes")
-    print(reversed(dag.applied_nodes))
+    print("reverse applied nodes left")
+    print(reversed(dag.applied_nodes_left))
 
-    for gate in reversed(dag.applied_nodes):
+    print("reverse applied nodes right")
+    print(reversed(dag.applied_nodes_right))
+
+    for gate in reversed(dag.applied_nodes_left):
         gate_tuple = tuple([qubit.index for qubit in gate.qargs])
-        _add_gate_to_dagcircuit(gate_tuple, qubit_array, graph, gate.left)
+        _add_gate_to_dagcircuit(gate_tuple, qubit_array, graph, True)
+
+    for gate in reversed(dag.applied_nodes_right):
+        gate_tuple = tuple([qubit.index for qubit in gate.qargs])
+        _add_gate_to_dagcircuit(gate_tuple, qubit_array, graph, False)
     
     # For Visualization
     # bidag = graph.draw(scale=0.7, style='color')
@@ -145,10 +111,6 @@ def construct_bidirectional_dagcircuit(circuit_info, count_physical_qubit, index
         _add_gate_to_dagcircuit(gate, qubit_array, graph, True)
     for gate in right_circuit_info:
         _add_gate_to_dagcircuit(gate, qubit_array, graph, False)
-
-    # For Visualization
-    # bidag = graph.draw(scale=0.7, style='color')
-    # bidag.save(f'bidirectional_dagcircuit_index_{index}.png')
     
     return graph
 
