@@ -92,23 +92,30 @@ if __name__ == "__main__":
     else:
         result = build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, args.layout_trials, args.index)
 
-    lowest_swap = highest_swap = result[0]["swap_count"]
-    lowest_idx = highest_idx = 0
-    for i in range(1, len(result)):
-        if result[i]["swap_count"] > highest_swap:
-            highest_swap = result[i]["swap_count"]
-            highest_idx = i
-        if result[i]["swap_count"] < lowest_swap:
-            lowest_swap = result[i]["swap_count"]
-            lowest_idx = i
-
     data["device"] = str(args.device)
     data["circuit"] = circuit_name
     data["layout_trials"] = args.layout_trials
     data["basic_sabre"] = {'swap_count': basic_sabre_swap_count, 'depth': depth}
     data["result"] = result
-    data["lowest_result"] = result[lowest_idx]
-    data["highest_result"] = result[highest_idx]
+    
+    if args.index == -1:
+        lowest_swap = highest_swap = result[0]["swap_count"]
+        lowest_layout_swap_count = result[0]["layout_swap_count"]
+        lowest_idx = highest_idx = 0
+        lowest_layout_swap_count_idx = 0
+        for i in range(1, len(result)):
+            if result[i]["swap_count"] > highest_swap:
+                highest_swap = result[i]["swap_count"]
+                highest_idx = i
+            if result[i]["swap_count"] < lowest_swap:
+                lowest_swap = result[i]["swap_count"]
+                lowest_idx = i
+            if result[i]["layout_swap_count"] < lowest_layout_swap_count:
+                lowest_layout_swap_count = result[i]["swap_count"]
+                lowest_layout_swap_count_idx = i
+        data["lowest_result"] = result[lowest_idx]
+        data["highest_result"] = result[highest_idx]
+        data["lowest_layout_swap_count_result"] = result[lowest_layout_swap_count_idx]
 
     with open(file_name, 'w') as file_object:
         json.dump(data, file_object, default=int)

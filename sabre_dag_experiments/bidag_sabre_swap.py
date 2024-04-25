@@ -133,6 +133,7 @@ class BiDAGSabreSwap:
         chosen_idx = random.randint(0, len(min_swap) - 1)
         chosen_mapping = best_mapping[chosen_idx]
         chosen_swap = min_swap[chosen_idx]
+        print(f"chosen swap: {chosen_swap}")
         print("new mapping")
         print(chosen_mapping)
         self.mutable_mapping = chosen_mapping

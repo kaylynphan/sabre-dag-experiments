@@ -171,6 +171,13 @@ class Driver:
                 swaps, final_mapping = sbs.run()
 
                 initial_mapping = final_mapping
+
+        # for _ in range(self.layout_trials):
+        #     dag = bidirectional_dag
+        #     sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=0, trials=None)
+        #     swaps, final_mapping = sbs.run()
+
+        #     initial_mapping = final_mapping
         
         final_swap_count = len(swaps)
     
@@ -206,6 +213,8 @@ class Driver:
                 k: k for k in range(self.count_physical_qubit)
             }
 
+            best_mapping = None
+            lowest_layout_swap_count = float("inf")
             for _ in range(self.layout_trials):
                 for dir in ["forward", "reverse"]:
                     if dir == 'forward':
@@ -215,20 +224,35 @@ class Driver:
                     sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=0, trials=None)
                     swaps, final_mapping = sbs.run()
 
+                    if len(swaps) < lowest_layout_swap_count:
+                        best_mapping = final_mapping
+                        lowest_layout_swap_count = len(swaps)
+
                     initial_mapping = final_mapping
+
+            # for _ in range(self.layout_trials):
+            #     dag = bidirectional_dag
+        
+            #     sbs = BiDAGSabreSwap(bidag=dag, coupling_map=device, initial_mapping=initial_mapping, heuristic="basic", seed=0, trials=None)
+            #     swaps, final_mapping = sbs.run()
+
+            #     if len(swaps) < lowest_layout_swap_count:
+            #         best_mapping = final_mapping
+            #         lowest_layout_swap_count = len(swaps)
+
+            #     initial_mapping = final_mapping
             
-            final_swap_count = len(swaps)
         
             print(f"SabreLayout with {self.layout_trials} layout trials found this initial mapping and swap count:")
-            print(initial_mapping)
-            print(final_swap_count)
+            print(best_mapping)
+            print(lowest_layout_swap_count)
 
             # convert initial_mapping from int->int dict to int->Qubit dict
-            initial_mapping = {k: Qubit(register=QuantumRegister(size=self.count_physical_qubit, name='q'), index=v) for k, v in initial_mapping.items()}
+            initial_mapping = {k: Qubit(register=QuantumRegister(size=self.count_physical_qubit, name='q'), index=v) for k, v in best_mapping.items()}
             
             left_swap_count, left_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, True, index, self.layout_trials, visualize=False)
             right_swap_count, right_depth = apply_layout_and_generate_sabre_swaps(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, initial_mapping, False, index, self.layout_trials, visualize=False)
 
-            results.append({'index': index, 'layout_swap_count': final_swap_count, 'swap_count': left_swap_count + right_swap_count, 'depth': left_depth + right_depth})
+            results.append({'index': index, 'layout_swap_count': lowest_layout_swap_count, 'swap_count': left_swap_count + right_swap_count, 'depth': left_depth + right_depth})
         return results
 

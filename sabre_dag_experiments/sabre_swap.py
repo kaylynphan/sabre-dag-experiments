@@ -226,12 +226,15 @@ class SabreSwap(TransformationPass):
         self.dist_matrix = self.coupling_map.distance_matrix
 
         canonical_register = dag.qregs["q"]
-        current_layout = Layout.generate_trivial_layout(canonical_register)
+        current_layout = self.property_set["layout"]
         self._qubit_indices = {bit: idx for idx, bit in enumerate(canonical_register)}
         layout_mapping = {
-            self._qubit_indices[k]: v for k, v in current_layout.get_virtual_bits().items()
+            v: self._qubit_indices[k] for k, v in current_layout.get_virtual_bits().items()
         }
         initial_layout = NLayout(layout_mapping, len(dag.qubits), self.coupling_map.size())
+
+        print("initial layout passed into sabre")
+        print(layout_mapping)
 
         sabre_dag, circuit_to_dag_dict = _build_sabre_dag(
             dag,
