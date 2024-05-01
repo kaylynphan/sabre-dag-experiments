@@ -4,7 +4,7 @@ from qiskit.transpiler import PassManager, Layout
 from qiskit.transpiler.passes import ApplyLayout, SetLayout
 from sabre_dag_experiments.sabre_swap import SabreSwap
 from sabre_dag_experiments.sabre_layout import SabreLayout
-from qiskit.converters import *
+from qiskit.converters import circuit_to_dag
 
 from sabre_dag_experiments.bidag_sabre_swap import BiDAGSabreSwap
 
@@ -81,11 +81,15 @@ def run_sabre(circuit_info, coupling, count_physical_qubit, heuristic, layout_tr
     list_gate = circuit_info
     qc = construct_qc(list_gate, count_physical_qubit)
     device = CouplingMap(couplinglist = coupling, description="sabre_test")
+
+    sabre_dag = circuit_to_dag(qc)
+    # Visualize sabre dag
+    sabre_dag.draw(scale=0.7, filename="basic_sabre_dag.png", style='color')
     
     sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials)
     pass_manager1 = PassManager(sbl)
     sabre_cir = pass_manager1.run(qc)
-    sabre_cir.draw(scale=0.7, filename="sabrecir.png", output='mpl', style='color')
+    sabre_cir.draw(scale=0.7, filename="sabre_cir.png", output='mpl', style='color')
     
     count_swap = 0
     for gate in sabre_cir.data:

@@ -33,6 +33,8 @@ class BiDAGSabreSwap:
     self.neighbor_table = self.create_neighbor_table(self.coupling_map.graph)
     print("neighbor table")
     print(self.neighbor_table)
+          
+    self.restarts = 0
 
     ############## SET INITIAL LAYOUT
 
@@ -56,9 +58,14 @@ class BiDAGSabreSwap:
     # initial_layout = NLayout(layout_mapping, len(bidag.qubits), self.coupling_map.size())
 
     # SKIP DAG GENERATION. ALREADY GIVEN WITH BIDAG
+
+  def restart(self, swap):
+    F = self.initialize_front_layer()
+    new_mapping = self.execute_swap(swap, self.initial_mapping)
+    self.restarts = self.restarts + 1
+    return F, new_mapping
   
   def run(self):
-
     # RUN SABRE ALGORITHM
 
     # CONSTRUCT FRONT LAYER AND OUTPUT VARIABLES
@@ -117,7 +124,7 @@ class BiDAGSabreSwap:
         print(swap_candidate_list)
         min_swap = [] # initialize
         best_score = float("inf") # initialize
-        best_mapping = None
+        best_mapping = self.mutable_mapping
         
         for swap in swap_candidate_list:
           score, new_mapping = self.score_temp_mapping(swap, self.mutable_mapping, F)
@@ -136,9 +143,15 @@ class BiDAGSabreSwap:
         print(f"chosen swap: {chosen_swap}")
         print("new mapping")
         print(chosen_mapping)
-        self.mutable_mapping = chosen_mapping
-        inserted_swaps.append(chosen_swap)
-        final_qc.swap(chosen_swap[0], chosen_swap[1])
+
+        if len(self.executed_gates_set) == 0 and self.restarts <= 10:
+          print("swap required before any gates have been able to execute. Restart the process")
+          print(f"")
+          F, self.mutable_mapping = self.restart(chosen_swap)
+        else:
+          self.mutable_mapping = chosen_mapping
+          inserted_swaps.append(chosen_swap)
+          final_qc.swap(chosen_swap[0], chosen_swap[1])
 
     return inserted_swaps, self.mutable_mapping
 
