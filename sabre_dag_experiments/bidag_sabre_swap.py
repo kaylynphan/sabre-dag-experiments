@@ -144,6 +144,7 @@ class BiDAGSabreSwap:
         print("new mapping")
         print(chosen_mapping)
 
+        # Remove this and replace with post-processing
         if len(self.executed_gates_set) == 0 and self.restarts <= 10:
           print("swap required before any gates have been able to execute. Restart the process")
           print(f"")
@@ -160,6 +161,8 @@ class BiDAGSabreSwap:
     edges = graph.edge_list()
     for u, v in edges:
       neighbor_table[u, v] += 1
+      if u != v:
+        neighbor_table[v, u] += 1
     return neighbor_table
   
   def get_F_targets(self, F):
@@ -168,7 +171,6 @@ class BiDAGSabreSwap:
       for qarg in gate.qargs:
         F_targets.add(qarg.index)
     return F_targets
-
   
   def initialize_front_layer(self):
     front_layer = self.bidag.front_layer()
@@ -224,9 +226,7 @@ class BiDAGSabreSwap:
   def find_neighbors(self, Q_m):
     neighbors = []
     for n in np.arange(self.num_qubits):
-      if self.neighbor_table[Q_m, n] == 1:
-        neighbors.append(n)
-      if self.neighbor_table[n, Q_m] == 1:
+      if self.neighbor_table[Q_m, n] == 1 or self.neighbor_table[n, Q_m] == 1:
         neighbors.append(n)
     # print(f"neighbors of {Q_m} are {neighbors}")
     return neighbors

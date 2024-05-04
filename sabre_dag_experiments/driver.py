@@ -209,6 +209,9 @@ class Driver:
         for index in range(len(self.list_gate_qubits)):
             bidirectional_dag = construct_bidirectional_dagcircuit(self.list_gate_qubits, self.count_physical_qubit, index)
             reverse_bidirectional_dag = construct_reverse_bidirectional_dagcircuit(bidirectional_dag, self.count_physical_qubit, index)
+            # Idea 1: Replace with random mapping
+            # Idea 2: For index 0, feed from original SABRE
+            
             initial_mapping =  {
                 k: k for k in range(self.count_physical_qubit)
             }
