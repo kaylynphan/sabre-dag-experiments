@@ -2,7 +2,6 @@ import argparse
 import json
 from sabre_dag_experiments.device import qcdevice
 from sabre_dag_experiments.driver import Driver
-from sabre_dag_experiments.qc_helpers import run_sabre
 from device_creation import get_nnGrid, get_device_by_name
 '''
     How to run:
@@ -23,13 +22,13 @@ def run_basic_sabre(circuit_info, device, layout_trials):
     lsqc_solver.setdevice(device)
     return lsqc_solver.get_swap_upper_bound(heuristic="basic")
 
-def build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, layout_trials, index):
+def build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, layout_trials, index, initial_layout):
     lsqc_solver = Driver(layout_trials)
     lsqc_solver.set_circuit_name(circuit_name)
     lsqc_solver.set_device_name(device_name)
     lsqc_solver.setprogram(circuit_info)
     lsqc_solver.setdevice(device)
-    return lsqc_solver.build_bidirectional_initial_mapping(index)
+    return lsqc_solver.build_bidirectional_initial_mapping(index, initial_layout)
 
 if __name__ == "__main__":
     # Initialize parser
@@ -85,12 +84,12 @@ if __name__ == "__main__":
     # layout_trials = args.layout_trials
 # print(f"layout_trials is {layout_trials}")
 
-    basic_sabre_swap_count, depth = run_basic_sabre(circuit_info, device, args.layout_trials)
+    basic_sabre_swap_count, depth, initial_layout = run_basic_sabre(circuit_info, device, args.layout_trials)
 
     if args.index == -1:
         result = build_bidirectional_initial_mappings_for_all_indices(circuit_info, circuit_name, device_name, device, args.layout_trials)
     else:
-        result = build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, args.layout_trials, args.index)
+        result = build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name, device, args.layout_trials, args.index, initial_layout)
 
     data["device"] = str(args.device)
     data["circuit"] = circuit_name

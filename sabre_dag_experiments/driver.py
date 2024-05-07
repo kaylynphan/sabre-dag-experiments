@@ -132,11 +132,11 @@ class Driver:
                 self.list_gate_two.append(l)
         
     def get_swap_upper_bound(self, heuristic="basic"):
-        swap_num, depth = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, heuristic, self.layout_trials)
+        swap_num, depth, layout = run_sabre(self.list_gate_qubits, self.list_qubit_edge, self.count_physical_qubit, heuristic, self.layout_trials)
         # print("Run heuristic compiler sabre to get upper bound for SWAP: {}, depth: {}".format(swap_num, depth))
-        return swap_num, depth
+        return swap_num, depth, layout
     
-    def build_bidirectional_initial_mapping(self, index):
+    def build_bidirectional_initial_mapping(self, index, initial_layout):
         # print("Drawing original circuit in orig_circuit.png")
         qc = construct_qc(self.list_gate_qubits, self.count_physical_qubit)
         qc.draw(scale=0.7, filename = "orig_circuit.png", output='mpl', style='color')
@@ -157,9 +157,12 @@ class Driver:
         reverse_bidag = reverse_bidirectional_dag.draw(scale=0.7, style='color')
         reverse_bidag.save(f'reverse_bidirectional_dagcircuit_index_{index}.png')
 
-        initial_mapping =  {
-            k: k for k in range(self.count_physical_qubit)
-        }
+        # pass initial layout from Basic Sabre Output
+        initial_mapping = {}
+        for k, v in initial_layout.get_physical_bits().items():
+            print(type(v))
+            print(v.index)
+            initial_mapping[k] = v.index
 
         for _ in range(self.layout_trials):
             for dir in ["forward", "reverse"]:
@@ -211,7 +214,7 @@ class Driver:
             reverse_bidirectional_dag = construct_reverse_bidirectional_dagcircuit(bidirectional_dag, self.count_physical_qubit, index)
             # Idea 1: Replace with random mapping
             # Idea 2: For index 0, feed from original SABRE
-            
+
             initial_mapping =  {
                 k: k for k in range(self.count_physical_qubit)
             }

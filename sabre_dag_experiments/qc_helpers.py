@@ -89,6 +89,7 @@ def run_sabre(circuit_info, coupling, count_physical_qubit, heuristic, layout_tr
     sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials)
     pass_manager1 = PassManager(sbl)
     sabre_cir = pass_manager1.run(qc)
+    layout = pass_manager1.property_set['layout']
     sabre_cir.draw(scale=0.7, filename="sabre_cir.png", output='mpl', style='color')
     
     count_swap = 0
@@ -96,7 +97,7 @@ def run_sabre(circuit_info, coupling, count_physical_qubit, heuristic, layout_tr
         if gate[0].name == 'swap':
             count_swap += 1
 
-    return count_swap, sabre_cir.depth()
+    return count_swap, sabre_cir.depth(), layout
         
 # def construct_dagcircuit(circuit_info, coupling, count_physical_qubit, index):
 #     if index < 0 or index >= len(circuit_info):
