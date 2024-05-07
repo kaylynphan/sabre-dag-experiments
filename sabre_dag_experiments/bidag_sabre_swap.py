@@ -145,14 +145,14 @@ class BiDAGSabreSwap:
         print(chosen_mapping)
 
         # Remove this and replace with post-processing
-        if len(self.executed_gates_set) == 0 and self.restarts <= 10:
-          print("swap required before any gates have been able to execute. Restart the process")
-          print(f"")
-          F, self.mutable_mapping = self.restart(chosen_swap)
-        else:
-          self.mutable_mapping = chosen_mapping
-          inserted_swaps.append(chosen_swap)
-          final_qc.swap(chosen_swap[0], chosen_swap[1])
+        # if len(self.executed_gates_set) == 0 and self.restarts <= 10:
+        #   print("swap required before any gates have been able to execute. Restart the process")
+        #   print(f"")
+        #   F, self.mutable_mapping = self.restart(chosen_swap)
+        # else:
+        self.mutable_mapping = chosen_mapping
+        inserted_swaps.append(chosen_swap)
+        final_qc.swap(chosen_swap[0], chosen_swap[1])
 
     return inserted_swaps, self.mutable_mapping
 
