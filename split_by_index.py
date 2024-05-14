@@ -28,7 +28,7 @@ def build_bidirectional_initial_mapping(circuit_info, circuit_name, device_name,
     lsqc_solver.set_device_name(device_name)
     lsqc_solver.setprogram(circuit_info)
     lsqc_solver.setdevice(device)
-    return lsqc_solver.build_bidirectional_initial_mapping(index, initial_layout)
+    return lsqc_solver.build_bidirectional_initial_mapping(index)
 
 if __name__ == "__main__":
     # Initialize parser

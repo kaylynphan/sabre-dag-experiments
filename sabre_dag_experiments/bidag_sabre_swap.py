@@ -154,7 +154,7 @@ class BiDAGSabreSwap:
         inserted_swaps.append(chosen_swap)
         final_qc.swap(chosen_swap[0], chosen_swap[1])
 
-    return inserted_swaps, self.mutable_mapping
+    return inserted_swaps, self.mutable_mapping, final_qc
 
   def create_neighbor_table(self, graph):
     neighbor_table = np.zeros((self.num_qubits, self.num_qubits))

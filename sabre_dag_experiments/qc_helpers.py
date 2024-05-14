@@ -4,7 +4,7 @@ from qiskit.transpiler import PassManager, Layout
 from qiskit.transpiler.passes import ApplyLayout, SetLayout
 from sabre_dag_experiments.sabre_swap import SabreSwap
 from sabre_dag_experiments.sabre_layout import SabreLayout
-from qiskit.converters import circuit_to_dag
+from qiskit.converters import circuit_to_dag, dag_to_circuit
 
 from sabre_dag_experiments.bidag_sabre_swap import BiDAGSabreSwap
 
@@ -52,22 +52,43 @@ def apply_layout_and_generate_sabre_swaps(circuit_info, coupling, count_physical
     # print(swaps)
     # print(f"{len(swaps)} swaps")
 
-    init_layout = Layout()
-    init_layout.from_dict(initial_mapping)
-    sl = SetLayout(init_layout)
-    apl = ApplyLayout()
-    sbs = SabreSwap(coupling_map = device, heuristic = "basic", seed = 0, trials=layout_trials)
-    pm1 = PassManager([sl, apl, sbs])
-    # pm1 = PassManager(sbs)
-    sabre_cir = pm1.run(qc)
+    layout = Layout(initial_mapping)
+    # perform routing only
+    sabre_layout = SabreLayout(coupling_map = device, seed = 0, layout_trials=0, max_iterations=0, skip_routing=False)
+    sabre_layout.property_set['sabre_starting_layouts'] = [layout]
+
+    out_dag = sabre_layout.run(circuit_to_dag(qc))
+    sabre_cir = dag_to_circuit(out_dag)
+
+    print('property_set[layout]')
+    print(sabre_layout.property_set['layout'])
+    
+
+    # init_layout = Layout()
+    # init_layout.from_dict(initial_mapping)
+    # sl = SetLayout(init_layout)
+    # apl = ApplyLayout()
+    # sbs = SabreSwap(coupling_map = device, heuristic = "basic", seed = 0, trials=layout_trials)
+    # pm1 = PassManager([sl, apl, sbs])
+    # # pm1 = PassManager(sbs)
+    # sabre_cir = pm1.run(qc)
 
     if visualize:
         if left:
             print(f"Drawing left circuit at bidag_index_{index}_left_circuit.png")
             sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_left_circuit.png", output='mpl', style='color', with_layout=True)
+            print(f"Drawing left (REVERSED) circuit at bidag_index_{index}_reverse_left_circuit.png")
+            sabre_cir.reverse_ops().draw(scale=0.7, filename=f"bidag_index_{index}_reverse_left_circuit.png", output='mpl', style='color', with_layout=True)
+
         else:
             print(f"Drawing right circuit at bidag_index_{index}_right_circuit.png")
             sabre_cir.draw(scale=0.7, filename=f"bidag_index_{index}_right_circuit.png", output='mpl', style='color', with_layout=True)
+
+            right_qc_dag = circuit_to_dag(sabre_cir)
+            rev_right_qc_dag = right_qc_dag.reverse_ops()
+            right_qc_dag.draw(scale=0.7, filename=f"bidag_index_{index}_right_circuit_dag.png")
+            rev_right_qc_dag.draw(scale=0.7, filename=f"rev_bidag_index_{index}_right_circuit_dag.png")
+
     
     count_swap = 0
     for gate in sabre_cir.data:
@@ -89,6 +110,10 @@ def run_sabre(circuit_info, coupling, count_physical_qubit, heuristic, layout_tr
     sbl = SabreLayout(coupling_map = device, seed = 0, layout_trials=layout_trials)
     pass_manager1 = PassManager(sbl)
     sabre_cir = pass_manager1.run(qc)
+    sabre_cir_dag = circuit_to_dag(sabre_cir)
+    sabre_cir_dag.draw(scale=0.7, filename="sabre_cir_dag.png", style='color')
+    rev_sabre_cir_dag = sabre_cir_dag.reverse_ops()
+    rev_sabre_cir_dag.draw(scale=0.7, filename="rev_sabre_cir_dag.png", style='color')
     layout = pass_manager1.property_set['layout']
     sabre_cir.draw(scale=0.7, filename="sabre_cir.png", output='mpl', style='color')
     
@@ -96,6 +121,8 @@ def run_sabre(circuit_info, coupling, count_physical_qubit, heuristic, layout_tr
     for gate in sabre_cir.data:
         if gate[0].name == 'swap':
             count_swap += 1
+
+    print(f"Basic Sabre found the following layout: {layout.__repr__()}")
 
     return count_swap, sabre_cir.depth(), layout
         
